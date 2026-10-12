@@ -1,0 +1,151 @@
+openapi: 3.0.3
+info:
+  title: Pesanin API
+  version: 1.2.0
+  description: Kontrak minimal (admin/cashier/kitchen KDS + bukti QRIS). Alur status pending-confirmed-preparing-served(READY)-completed. Base URL http://localhost:8000/api
+servers:
+  - url: http://localhost:8000/api
+paths:
+  /login:
+    post:
+      summary: Login staf
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token: { type: string }
+                  user:
+                    type: object
+                    properties:
+                      id: { type: integer }
+                      name: { type: string }
+                      email: { type: string }
+                      role: { type: string, enum: [admin, cashier, kitchen] }
+  /checkout:
+    post:
+      summary: Buat order baru atau tambah menu via tracking_token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [restaurant_table_id, customer_name, payment_method, items]
+              properties:
+                restaurant_table_id: { type: integer }
+                customer_name: { type: string }
+                payment_method: { type: string, enum: [cash, qris] }
+                tracking_token: { type: string }
+                notes: { type: string }
+                items:
+                  type: array
+                  items:
+                    type: object
+                    required: [product_id, quantity]
+                    properties:
+                      product_id: { type: integer }
+                      quantity: { type: integer, minimum: 1 }
+                      notes: { type: string }
+      responses:
+        '201': { description: Order dibuat }
+        '200': { description: Menu ditambahkan }
+        '422': { description: Validasi/stok/meja salah }
+  /orders/track/{trackingToken}:
+    get:
+      summary: Tracking customer
+      parameters:
+        - in: path
+          name: trackingToken
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: OK }
+        '404': { description: Order tidak ditemukan }
+  /orders/track/{trackingToken}/proof:
+    post:
+      summary: Upload bukti QRIS (public via token)
+      parameters:
+        - in: path
+          name: trackingToken
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [proof]
+              properties:
+                proof: { type: string, format: binary }
+      responses:
+        '200': { description: Bukti diterima }
+        '422': { description: Bukan QRIS / sudah lunas / selesai }
+  /orders/{order}/status:
+    patch:
+      summary: Update status KDS (admin full, cashier/kitchen terbatas)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: order
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string, enum: [pending, confirmed, preparing, served, completed, cancelled] }
+      responses:
+        '200': { description: OK }
+        '403': { description: Di luar izin peran }
+        '422': { description: Transisi tidak valid }
+  /orders/{order}/payment:
+    patch:
+      summary: Konfirmasi/tolak pembayaran (admin/cashier)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: order
+          required: true
+          schema: { type: integer }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                action: { type: string, enum: [confirm, reject], default: confirm }
+                reject_note: { type: string, maxLength: 500 }
+      responses:
+        '200': { description: OK }
+        '422': { description: Sudah paid / QRIS tanpa bukti / tanpa bukti untuk reject }
+  /dashboard/stats:
+    get:
+      summary: Statistik dashboard + omzet hari ini
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: OK }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
