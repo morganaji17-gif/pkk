@@ -14,7 +14,7 @@ class UserSeeder extends Seeder
     {
         // GANTI password ini via .env untuk produksi. Default hanya untuk lokal/sekolah.
         $adminPassword = env('SEED_ADMIN_PASSWORD', 'Admin123!');
-        $cashierPassword = env('SEED_CASHIER_PASSWORD', 'Cashier123!');
+        $cashierPassword = env('SEED_CASHIER_PASSWORD', 'Cashier123!'); 
         $kitchenPassword = env('SEED_KITCHEN_PASSWORD', 'Kitchen123!');
 
         User::updateOrCreate(
