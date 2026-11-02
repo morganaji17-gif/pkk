@@ -38,14 +38,29 @@ function KdsCard({ order, busy, onAction }) {
         <p className="kds-card__customer">{order.customer_name}</p>
       )}
       <ul className="kds-card__items">
-        {items.map((item) => (
-          <li key={item.id}>
-            <span>
-              {item.product?.name || 'Produk'} <strong>× {item.quantity}</strong>
-            </span>
-            {item.notes && <small>Catatan: {item.notes}</small>}
-          </li>
-        ))}
+        {items.map((item) => {
+          // Parse selected_options JSON jika ada
+          let opts = []
+          try {
+            const raw = typeof item.selected_options === 'string' ? JSON.parse(item.selected_options) : item.selected_options
+            opts = Array.isArray(raw) ? raw : []
+          } catch {
+            opts = []
+          }
+          return (
+            <li key={item.id}>
+              <span>
+                {item.product?.name || 'Produk'} <strong>× {item.quantity}</strong>
+              </span>
+              {opts.length > 0 && (
+                <small className="kds-card__item-opts">
+                  {' · '}Varian: {opts.map((o) => o.option_label).join(', ')}
+                </small>
+              )}
+              {item.notes && <small>Catatan: {item.notes}</small>}
+            </li>
+          )
+        })}
       </ul>
       {order.notes && <p className="kds-card__note">Catatan order: {order.notes}</p>}
       {action && (

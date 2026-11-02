@@ -13,6 +13,8 @@ class DashboardStatsController extends Controller
 {
     public function index(SalesReportService $reports)
     {
+        $tz = $reports->getBusinessTimezone();
+
         $orderStats = \Illuminate\Support\Facades\DB::table('orders')
             ->selectRaw("COUNT(CASE WHEN status = 'pending' THEN 1 END) as pending_orders")
             ->selectRaw("COUNT(CASE WHEN status = 'confirmed' THEN 1 END) as confirmed_orders")
@@ -24,6 +26,45 @@ class DashboardStatsController extends Controller
             ->first();
 
         $today = $reports->todayStats();
+
+        // Bukti pembayaran QRIS yang menunggu verifikasi (dengan URL bukti, meja & total).
+        $pendingProofs = Order::with('table')
+            ->whereNotNull('proof_image')
+            ->where('payment_status', 'unpaid')
+            ->whereNotIn('status', ['cancelled', 'completed'])
+            ->orderBy('proof_uploaded_at')
+            ->limit(8)
+            ->get([
+                'id',
+                'order_number',
+                'restaurant_table_id',
+                'customer_name',
+                'status',
+                'total_price',
+                'proof_image',
+                'proof_uploaded_at',
+            ])
+            ->map(fn (Order $order) => [
+                'id' => $order->id,
+                'order_number' => $order->order_number,
+                'customer_name' => $order->customer_name,
+                'table' => $order->table?->table_number,
+                'status' => $order->status,
+                'total_price' => (float) $order->total_price,
+                'proof_url' => $order->proof_url,
+                'uploaded_at' => $order->proof_uploaded_at?->toIso8601String(),
+            ])->values()->all();
+
+        // Perbandingan pendapatan vs kemarin (sudah lunas).
+        $todayStart = Carbon::now($tz)->startOfDay();
+        $yesterdayStart = $todayStart->copy()->subDay();
+        $yesterdayRevenue = (float) Order::where('created_at', '>=', $yesterdayStart->copy()->setTimezone('UTC'))
+            ->where('created_at', '<', $todayStart->copy()->setTimezone('UTC'))
+            ->where('payment_status', 'paid')
+            ->sum('total_price');
+
+        // Produk terlaris hari ini (maksimal 5).
+        $topProducts = $reports->topProducts($todayStart->copy(), $todayStart->copy()->addDay(), 5);
 
         return response()->json([
             'message' => 'Dashboard stats retrieved successfully',
@@ -47,6 +88,9 @@ class DashboardStatsController extends Controller
                 'today_profit' => $today['profit'],
                 'today_average' => $today['average'],
                 'today_label' => $today['label'],
+                'yesterday_revenue' => $yesterdayRevenue,
+                'pending_proof_list' => $pendingProofs,
+                'today_top_products' => $topProducts,
             ],
         ]);
     }

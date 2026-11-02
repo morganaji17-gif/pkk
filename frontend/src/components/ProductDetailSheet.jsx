@@ -1,38 +1,50 @@
-import { useEffect, useState } from 'react'
-import { getProduct } from '../api/client'
+/* eslint-disable react-hooks/set-state-in-effect -- reset state saat sheet dibuka; komponen di-remount via key */
+import { useEffect, useMemo, useState } from 'react'
+import { getProduct, peekProductCache } from '../api/client'
 import { formatRupiah, resolveImageUrl } from '../utils/format'
-import LoadingState from './LoadingState'
+import { computeItemUnitPrice } from '../hooks/useCart'
 import ErrorState from './ErrorState'
 import QuantityStepper from './QuantityStepper'
 
-export default function ProductDetailSheet({ open, productId, onClose, onAdd }) {
+export default function ProductDetailSheet({ open, productId, menuProducts = [], onClose, onAdd }) {
   const [product, setProduct] = useState(null)
   const [error, setError] = useState(null)
-  const [loading, setLoading] = useState(true)
   const [quantity, setQuantity] = useState(1)
+  const [selectedOptions, setSelectedOptions] = useState([])
   const [reloadKey, setReloadKey] = useState(0)
+
+  // Temukan produk secara sinkron dari menu / cache agar sheet tampil instan.
+  const resolvedProduct = (() => {
+    if (!open || !productId) return null
+    const fromMenu = Array.isArray(menuProducts)
+      ? menuProducts.find((p) => Number(p?.id) === Number(productId))
+      : null
+    return fromMenu || peekProductCache(productId)
+  })()
 
   useEffect(() => {
     if (!open || !productId) return
-    let cancelled = false
-    const load = async () => {
-      try {
-        const data = await getProduct(productId)
-        if (cancelled) return
-        setProduct(data)
-        setQuantity(1)
-      } catch (err) {
-        if (cancelled) return
-        setError(err.message)
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
+    setError(null)
+    setSelectedOptions([])
+    setQuantity(1)
+
+    if (resolvedProduct) {
+      setProduct(resolvedProduct)
+      // Revalidasi diam-diam agar harga/stok tetap segar tanpa menahan UI.
+      getProduct(productId, { revalidate: true })
+        .then((data) => {
+          setProduct(data)
+        })
+        .catch(() => {
+          // biarkan data cache tetap tampil
+        })
+      return
     }
-    load()
-    return () => {
-      cancelled = true
-    }
-  }, [open, productId, reloadKey])
+
+    getProduct(productId)
+      .then((data) => setProduct(data))
+      .catch((err) => setError(err.message))
+  }, [open, productId, reloadKey, resolvedProduct])
 
   useEffect(() => {
     if (!open) return
@@ -52,32 +64,65 @@ export default function ProductDetailSheet({ open, productId, onClose, onAdd }) 
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [open, onClose])
 
-  if (!open) return null
-
   const soldOut = product ? product.stock <= 0 : false
   const displayQuantity = product
     ? Math.max(1, Math.min(quantity, product.stock))
     : 1
 
+  const unitPrice = useMemo(() => {
+    return computeItemUnitPrice(product, selectedOptions)
+  }, [product, selectedOptions])
+
   const retry = () => {
     setError(null)
-    setLoading(true)
     setReloadKey((n) => n + 1)
   }
+
+  const handleToggleOption = (groupId, optionId) => {
+    setSelectedOptions((prev) => {
+      const group = product?.optionGroups?.find((g) => g.id === groupId)
+      if (!group) return prev
+      if (group.selection_type === 'single') {
+        const existing = prev.find((o) => o.option_group_id === groupId)
+        if (existing?.option_id === optionId) {
+          return prev.filter((o) => o.option_group_id !== groupId)
+        }
+        return [
+          ...prev.filter((o) => o.option_group_id !== groupId),
+          { option_group_id: groupId, option_id: optionId },
+        ]
+      }
+      const exists = prev.some(
+        (o) => o.option_group_id === groupId && o.option_id === optionId
+      )
+      if (exists) {
+        return prev.filter(
+          (o) => !(o.option_group_id === groupId && o.option_id === optionId)
+        )
+      }
+      return [...prev, { option_group_id: groupId, option_id: optionId }]
+    })
+  }
+
+  const handleAdd = () => {
+    if (!product) return
+    onAdd(product, displayQuantity, selectedOptions)
+    onClose()
+  }
+
+  if (!open) return null
 
   return (
     <div className="drawer drawer--sheet" role="dialog" aria-modal="true" aria-label="Detail produk">
       <div className="drawer__scrim" onClick={onClose} />
       <div className="drawer__panel drawer__panel--sheet">
-        {loading && <LoadingState label="Memuat detail produk…" />}
-
-        {error && !loading && (
+        {error && (
           <div className="drawer__sheet-body">
             <ErrorState title="Gagal memuat produk" message={error} onRetry={retry} />
           </div>
         )}
 
-        {product && !loading && !error && (
+        {product && !error && (
           <>
             <div className="detail-sheet__media">
               {resolveImageUrl(product.image) ? (
@@ -102,12 +147,50 @@ export default function ProductDetailSheet({ open, productId, onClose, onAdd }) 
                 <span className="detail-sheet__category">{product.category.name}</span>
               )}
               <h2 className="detail-sheet__name">{product.name}</h2>
-              <p className="detail-sheet__price">{formatRupiah(product.price)}</p>
+              <p className="detail-sheet__price">{formatRupiah(unitPrice)}</p>
               <p className="detail-sheet__stock">
                 {soldOut ? 'Stok habis' : `Tersedia ${product.stock} porsi`}
               </p>
               {product.description && (
                 <p className="detail-sheet__desc">{product.description}</p>
+              )}
+
+              {/* Varian / ops menu */}
+              {product.optionGroups && product.optionGroups.length > 0 && (
+                <div className="detail-sheet__options">
+                  <p className="detail-sheet__options-title">Pilihan Varian</p>
+                  {product.optionGroups.map((group) => (
+                    <div key={group.id} className="detail-sheet__option-group">
+                      <span className="detail-sheet__option-group-name">{group.name}</span>
+                      <div className="detail-sheet__option-items">
+                        {group.options.map((opt) => {
+                          const isChecked = selectedOptions.some(
+                            (o) => o.option_group_id === group.id && o.option_id === opt.id
+                          )
+                          return (
+                            <label
+                              key={opt.id}
+                              className={`detail-sheet__option-item ${isChecked ? 'is-checked' : ''}`}
+                            >
+                              <input
+                                type={group.selection_type === 'single' ? 'radio' : 'checkbox'}
+                                name={`opt-group-${group.id}`}
+                                checked={isChecked}
+                                onChange={() => handleToggleOption(group.id, opt.id)}
+                              />
+                              <span className="detail-sheet__option-label">{opt.label}</span>
+                              {Number(opt.additional_price) > 0 && (
+                                <span className="detail-sheet__option-price">
+                                  +{formatRupiah(opt.additional_price)}
+                                </span>
+                              )}
+                            </label>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
 
@@ -125,10 +208,7 @@ export default function ProductDetailSheet({ open, productId, onClose, onAdd }) 
                   <button
                     type="button"
                     className="btn btn--primary btn--grow"
-                    onClick={() => {
-                      onAdd(product, displayQuantity)
-                      onClose()
-                    }}
+                    onClick={handleAdd}
                   >
                     Tambah ke Keranjang
                   </button>

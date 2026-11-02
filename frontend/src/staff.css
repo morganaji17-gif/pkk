@@ -294,6 +294,188 @@
   text-align: left;
 }
 
+/* Header: judul + quick links */
+.dash-header__row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.dash-quicklinks {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Tren pendapatan vs kemarin */
+.dash-trend {
+  display: inline-block;
+  margin-top: 2px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.dash-trend--up {
+  color: var(--color-success);
+}
+
+.dash-trend--down {
+  color: var(--color-danger);
+}
+
+/* Panel bukti QRIS menunggu ACC */
+.proof-acc {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.proof-acc__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.proof-acc__item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.proof-acc__thumb {
+  flex-shrink: 0;
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  background: var(--color-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.proof-acc__thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.proof-acc__thumb-fallback {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--color-muted-foreground);
+}
+
+.proof-acc__info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.proof-acc__order {
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--color-foreground);
+  text-decoration: none;
+}
+
+.proof-acc__order:hover {
+  text-decoration: underline;
+}
+
+.proof-acc__meta {
+  font-size: 12px;
+  color: var(--color-muted-foreground);
+}
+
+.proof-acc__total {
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.proof-acc__actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.proof-acc__reject {
+  margin-top: 12px;
+}
+
+/* Panel produk terlaris */
+.top-products {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.top-products__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.top-products__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.top-products__rank {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.top-products__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.top-products__meta {
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-muted-foreground);
+  white-space: nowrap;
+}
+
 .dash-chart {
   max-width: 720px;
   margin-bottom: 30px;
@@ -2082,6 +2264,103 @@
   font-size: 12px;
   font-weight: 400;
   color: var(--color-muted-foreground);
+}
+.kds-card__item-opts {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-warning);
+  margin-top: 2px;
+}
+
+/* ===== Panel opsi produk (admin) ===== */
+.product-option-panel {
+  padding: 14px 16px;
+  background: var(--color-surface-subtle);
+  border-top: 1px solid var(--color-border);
+}
+
+.product-option-panel__intro {
+  font-size: 13px;
+  color: var(--color-muted-foreground);
+  margin: 0 0 12px;
+}
+
+.product-option-panel__create-group {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.product-option-group {
+  margin-bottom: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.product-option-group__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.product-option-group__badge {
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: var(--radius-full);
+  background: var(--color-muted);
+  color: var(--color-foreground);
+}
+
+.product-option-group__badge--multiple {
+  background: var(--color-accent-subtle);
+  color: var(--color-primary);
+}
+
+.product-option-group__body {
+  padding: 12px;
+}
+
+.product-options-list {
+  list-style: none;
+  margin: 0 0 10px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.product-option-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+.product-option-item__label {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.product-option-item__price {
+  font-size: 13px;
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+.product-option-item__form {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 8px;
 }
 .kds-card__note {
   font-size: 13px;

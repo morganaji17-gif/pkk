@@ -44,6 +44,16 @@
   table.extra td { padding: 5px 8px; border-bottom: 1px solid #f1d5d5; font-size: 10px; color: #2a1a1a; }
   table.extra td.num, table.extra th.num { text-align: right; white-space: nowrap; }
   .compare-box { background: #fdf6f6; border: 1px solid #f1d5d5; padding: 8px 10px; font-size: 10px; color: #3a2424; }
+
+  .sign-wrap { margin-top: 26px; page-break-inside: avoid; width: 100%; border-collapse: collapse; }
+  .sign-wrap td { vertical-align: top; }
+  .sign-note { font-size: 9px; color: #7a5c5c; font-style: italic; }
+  table.sign-box { width: 46%; border-collapse: collapse; }
+  table.sign-box td { font-size: 10px; color: #2a1a1a; text-align: center; padding: 2px 6px; }
+  .sign-date { font-size: 10px; color: #2a1a1a; }
+  .sign-space { height: 52px; border-bottom: 1px dotted #7f1d1d; }
+  .sign-name { font-weight: bold; padding-top: 4px !important; }
+  .sign-role { color: #7f1d1d; }
 </style>
 </head>
 <body>
@@ -197,5 +207,24 @@
       </table>
     </div>
   @endif
+
+  <table class="sign-wrap">
+    <tr>
+      <td class="sign-note">Laporan ini dibuat otomatis oleh sistem dan sah tanpa materai.</td>
+      <td class="sign-cell">
+        <table class="sign-box">
+          <tr>
+            <td class="sign-date">
+              {{ $generatedAt->locale('id')->translatedFormat('d F Y') }}
+            </td>
+          </tr>
+          <tr><td>Dibuat oleh,</td></tr>
+          <tr><td class="sign-space">&nbsp;</td></tr>
+          <tr><td class="sign-name">{{ $createdBy }}</td></tr>
+          <tr><td class="sign-role">Admin Pesanin</td></tr>
+        </table>
+      </td>
+    </tr>
+  </table>
 </body>
 </html>

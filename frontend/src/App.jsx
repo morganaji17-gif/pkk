@@ -46,6 +46,7 @@ function App() {
   )
   const [cartOpen, setCartOpen] = useState(false)
   const [detailProductId, setDetailProductId] = useState(null)
+  const [menuProducts, setMenuProducts] = useState([])
 
   const [submitting, setSubmitting] = useState(false)
   const [checkoutError, setCheckoutError] = useState(null)
@@ -106,10 +107,13 @@ function App() {
         payment_method: resolvedMethod,
         tracking_token: isAppending ? trackingToken : undefined,
         notes: orderNotes || undefined,
-        items: cart.items.map(({ product, quantity, notes }) => ({
+        items: cart.items.map(({ product, quantity, notes, selectedOptions }) => ({
           product_id: product.id,
           quantity,
           notes: notes || undefined,
+          ...(Array.isArray(selectedOptions) && selectedOptions.length > 0
+            ? { selected_options: selectedOptions }
+            : {}),
         })),
       }
       const data = await checkout(payload)
@@ -210,6 +214,7 @@ function App() {
           cartItems={cart.items}
           onSelectProduct={(product) => setDetailProductId(product.id)}
           onAddProduct={handleAddProduct}
+          onProductsLoaded={setMenuProducts}
         />
         <CartBar
           count={cart.count}
@@ -243,6 +248,7 @@ function App() {
         key={detailProductId ?? 'closed'}
         open={Boolean(detailProductId)}
         productId={detailProductId}
+        menuProducts={menuProducts}
         onClose={() => setDetailProductId(null)}
         onAdd={handleAddProduct}
       />

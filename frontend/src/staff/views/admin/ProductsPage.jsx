@@ -21,6 +21,14 @@ import ProgressBar from '../../../components/ProgressBar'
 import ProductFilters from '../../components/ProductFilters'
 import { useStaffRealtime } from '../../hooks/useStaffRealtime'
 import { confirmDelete, toastError, toastSuccess } from '../../../utils/swal'
+import {
+  createProductOptionGroup,
+  deleteProductOptionGroup,
+  createProductOption,
+  deleteProductOption,
+  updateProductOption,
+} from '../../../api/client'
+import ProductOptionGroupsPanel from './ProductOptionGroupsPanel'
 
 const EMPTY_FORM = {
   category_id: '',
@@ -382,6 +390,7 @@ export default function ProductsPage() {
               </thead>
             <tbody>
               {products.map((product) => (
+                <>
                 <tr key={product.id}>
                   <td data-label="Produk">
                     <div className="staff-product-cell">
@@ -435,6 +444,12 @@ export default function ProductsPage() {
                     </div>
                   </td>
                 </tr>
+                <tr className="staff-row-options">
+                  <td colSpan={6}>
+                    <ProductOptionGroupsPanel product={product} />
+                  </td>
+                </tr>
+                </>
               ))}
             </tbody>
           </table>

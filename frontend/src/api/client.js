@@ -209,6 +209,35 @@ export function peekProductsCache(params = {}) {
   if (Array.isArray(payload)) return { items: payload, meta: null }
   return null
 }
+
+/**
+ * Ambil satu produk dari cache tanpa request jaringan.
+ * Prioritas: cache detail (/products/{id}), lalu cari di cache list
+ * (/products?...) yang sudah memuat category + optionGroups.
+ */
+export function peekProductCache(id) {
+  if (id === undefined || id === null || id === '') return null
+  const numericId = Number(id)
+
+  const direct = getCached(`/products/${id}`)
+  if (direct) return direct
+
+  for (const key of Array.from(_cache.keys())) {
+    if (!key.startsWith('/products?')) continue
+    const payload = getCached(key)
+    if (!payload) continue
+    const list = Array.isArray(payload?.data)
+      ? payload.data
+      : Array.isArray(payload)
+        ? payload
+        : null
+    if (!list) continue
+    const found = list.find((item) => Number(item?.id) === numericId)
+    if (found) return found
+  }
+
+  return null
+}
 export function peekCategoriesCache(params = {}) {
   const payload = getCached(`/categories${buildQuery(params)}`)
   if (!payload) return null
@@ -269,14 +298,27 @@ export function peekStockMutationsCache(params = {}) {
 
 export async function getProducts(params = {}) {
   const payload = await request(`/products${buildQuery(params)}`, { full: true })
-  if (payload?.meta) return { items: payload.data || [], meta: payload.meta }
-  if (Array.isArray(payload?.data)) return { items: payload.data, meta: null }
-  if (Array.isArray(payload)) return { items: payload, meta: null }
-  return { items: [], meta: null }
+  const items = payload?.meta
+    ? payload.data || []
+    : Array.isArray(payload?.data)
+      ? payload.data
+      : Array.isArray(payload)
+        ? payload
+        : []
+  // Seed cache detail per produk agar klik berikutnya tidak perlu request baru.
+  for (const item of items) {
+    if (item && item.id !== undefined && item.id !== null) {
+      setCached(`/products/${item.id}`, item)
+    }
+  }
+  if (payload?.meta) return { items, meta: payload.meta }
+  return { items, meta: null }
 }
 
-export function getProduct(id) {
-  return request(`/products/${id}`)
+export function getProduct(id, opts = {}) {
+  return request(`/products/${id}`, {
+    ...(opts.revalidate ? { revalidate: true } : null),
+  })
 }
 
 export async function getCategories(params = {}) {
@@ -460,6 +502,83 @@ export function deleteProduct(id) {
   return request(`/products/${id}`, { method: 'DELETE', auth: true }).then((res) => {
     clearCacheFor('/products')
     invalidateDashboardCaches()
+    return res
+  })
+}
+
+// --- Produk Opsi / Varian ---
+export function getProductOptionGroups(productId) {
+  return request(`/products/${productId}/options`)
+}
+
+export function createProductOptionGroup(productId, data) {
+  return request(`/products/${productId}/options`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+    headers: { 'Content-Type': 'application/json' },
+    auth: true,
+  }).then((res) => {
+    clearCacheFor('/products')
+    return res
+  })
+}
+
+export function updateProductOptionGroup(productId, groupId, data) {
+  return request(`/products/${productId}/options/${groupId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+    headers: { 'Content-Type': 'application/json' },
+    auth: true,
+  }).then((res) => {
+    clearCacheFor('/products')
+    return res
+  })
+}
+
+export function deleteProductOptionGroup(productId, groupId) {
+  return request(`/products/${productId}/options/${groupId}`, {
+    method: 'DELETE',
+    auth: true,
+  }).then((res) => {
+    clearCacheFor('/products')
+    return res
+  })
+}
+
+export function getProductOptions(productId, groupId) {
+  return request(`/products/${productId}/options/${groupId}/options`)
+}
+
+export function createProductOption(productId, groupId, data) {
+  return request(`/products/${productId}/options/${groupId}/options`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+    headers: { 'Content-Type': 'application/json' },
+    auth: true,
+  }).then((res) => {
+    clearCacheFor('/products')
+    return res
+  })
+}
+
+export function updateProductOption(productId, groupId, optionId, data) {
+  return request(`/products/${productId}/options/${groupId}/options/${optionId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+    headers: { 'Content-Type': 'application/json' },
+    auth: true,
+  }).then((res) => {
+    clearCacheFor('/products')
+    return res
+  })
+}
+
+export function deleteProductOption(productId, groupId, optionId) {
+  return request(`/products/${productId}/options/${groupId}/options/${optionId}`, {
+    method: 'DELETE',
+    auth: true,
+  }).then((res) => {
+    clearCacheFor('/products')
     return res
   })
 }

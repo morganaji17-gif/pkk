@@ -14,6 +14,7 @@ export default function MenuView({
   cartItems,
   onSelectProduct,
   onAddProduct,
+  onProductsLoaded,
 }) {
   const initialCatCache = peekCategoriesCache({ per_page: 50 })
   const initialProdCache = peekProductsCache({ per_page: 50 })
@@ -32,7 +33,10 @@ export default function MenuView({
     const hasCached = !!(cachedCat || cachedProd)
     if (hasCached) {
       if (cachedCat) setCategories(cachedCat.items || [])
-      if (cachedProd) setProducts(cachedProd.items || [])
+      if (cachedProd) {
+        setProducts(cachedProd.items || [])
+        onProductsLoaded?.(cachedProd.items || [])
+      }
       setError(null)
     }
     const load = async () => {
@@ -48,6 +52,7 @@ export default function MenuView({
         setCategories(categoryData)
         setProducts(productData)
         setError(null)
+        onProductsLoaded?.(productData)
       } catch (err) {
         if (cancelled) return
         if (!hasCached) setError(err.message)
@@ -59,7 +64,7 @@ export default function MenuView({
     return () => {
       cancelled = true
     }
-  }, [reloadKey])
+  }, [reloadKey, onProductsLoaded])
 
   const retry = () => {
     setError(null)

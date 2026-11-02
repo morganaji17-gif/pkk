@@ -85,16 +85,25 @@ export default function CheckoutView({
       </div>
 
       <ul className="checkout-list">
-        {items.map(({ product, quantity }) => (
-          <li key={product.id} className="checkout-item">
-            <span className="checkout-item__name">
-              {product.name} <span className="checkout-item__qty">× {quantity}</span>
-            </span>
-            <span className="checkout-item__subtotal">
-              {formatRupiah(Number(product.price) * quantity)}
-            </span>
-          </li>
-        ))}
+        {items.map(({ product, quantity, selectedOptions }) => {
+          const optExtra = (selectedOptions || []).reduce(
+            (acc, o) => acc + Number(o.additional_price || 0),
+            0
+          )
+          return (
+            <li key={product.id} className="checkout-item">
+              <span className="checkout-item__name">
+                {product.name} <span className="checkout-item__qty">× {quantity}</span>
+                {Array.isArray(selectedOptions) && selectedOptions.length > 0 && (
+                  <span className="checkout-item__opts">{selectedOptions.map((o) => o.option_label).join(', ')}</span>
+                )}
+              </span>
+              <span className="checkout-item__subtotal">
+                {formatRupiah((Number(product.price) + optExtra) * quantity)}
+              </span>
+            </li>
+          )
+        })}
       </ul>
 
       <form className="checkout-form" onSubmit={handleSubmit} noValidate>

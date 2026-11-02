@@ -24,6 +24,15 @@ export default function CartDrawer({ open, items, total, onClose, onUpdateQty, o
 
   if (!open) return null
 
+  // Tampilkan options text untuk setiap item
+  const optionTexts = {}
+  for (const item of items) {
+    if (Array.isArray(item.selectedOptions) && item.selectedOptions.length > 0) {
+      const texts = item.selectedOptions.map((o) => o.option_label).join(', ')
+      optionTexts[item.key] = texts
+    }
+  }
+
   return (
     <div className="drawer" role="dialog" aria-modal="true" aria-label="Keranjang">
       <div className="drawer__scrim" onClick={onClose} />
@@ -47,8 +56,8 @@ export default function CartDrawer({ open, items, total, onClose, onUpdateQty, o
         ) : (
           <>
             <ul className="cart-list">
-              {items.map(({ product, quantity, notes }) => (
-                <li key={product.id} className="cart-item">
+              {items.map(({ product, quantity, notes, selectedOptions, key }) => (
+                <li key={key} className="cart-item">
                   {resolveImageUrl(product.image) ? (
                     <img
                       className="cart-item__thumb"
@@ -64,20 +73,46 @@ export default function CartDrawer({ open, items, total, onClose, onUpdateQty, o
                   )}
                   <div className="cart-item__body">
                     <p className="cart-item__name">{product.name}</p>
-                    <p className="cart-item__price">{formatRupiah(product.price)}</p>
+                    <p className="cart-item__price">
+                      {formatRupiah(Number(product.price))}
+                      {Array.isArray(selectedOptions) && selectedOptions.length > 0 && (
+                        <span className="cart-item__opt-extra">
+                          {' '}
+                          (+
+                          {formatRupiah(
+                            selectedOptions.reduce(
+                              (acc, o) => acc + Number(o.additional_price || 0),
+                              0
+                            )
+                          )}
+                          )
+                        </span>
+                      )}
+                    </p>
+                    {Array.isArray(selectedOptions) && selectedOptions.length > 0 && (
+                      <p className="cart-item__opts">
+                        {selectedOptions.map((o) => o.option_label).join(', ')}
+                      </p>
+                    )}
                     <div className="cart-item__row">
                       <QuantityStepper
                         value={quantity}
                         min={1}
                         max={product.stock}
                         size="sm"
-                        onChange={(next) => onUpdateQty(product.id, next)}
+                        onChange={(next) => onUpdateQty(key, next)}
                       />
-                      <p className="cart-item__subtotal">{formatRupiah(Number(product.price) * quantity)}</p>
+                      <p className="cart-item__subtotal">
+                        {formatRupiah(
+                          (Number(product.price) +
+                            (selectedOptions || []).reduce((a, o) => a + Number(o.additional_price || 0), 0)) *
+                            quantity
+                        )}
+                      </p>
                       <button
                         type="button"
                         className="cart-item__remove"
-                        onClick={() => onRemove(product.id)}
+                        onClick={() => onRemove(key)}
                         aria-label={`Hapus ${product.name} dari keranjang`}
                       >
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18">
@@ -94,7 +129,7 @@ export default function CartDrawer({ open, items, total, onClose, onUpdateQty, o
                         maxLength={255}
                         placeholder="Catatan untuk menu ini (opsional)"
                         value={notes || ''}
-                        onChange={(e) => onSetNotes(product.id, e.target.value)}
+                        onChange={(e) => onSetNotes(key, e.target.value)}
                       />
                     )}
                   </div>

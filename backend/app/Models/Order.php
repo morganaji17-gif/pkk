@@ -8,7 +8,11 @@ class Order extends Model
 {
     public const OCCUPYING_STATUSES = ['pending', 'confirmed', 'preparing', 'served'];
 
-    public const APPENDABLE_STATUSES = ['pending', 'confirmed', 'preparing'];
+    /**
+     * Pelanggan hanya boleh menambah menu sebelum kasir ACC (status confirmed).
+     * Setelah ACC, tambah menu harus lewat pesanan baru.
+     */
+    public const APPENDABLE_STATUSES = ['pending'];
 
     public const STATUSES = ['pending', 'confirmed', 'preparing', 'served', 'completed', 'cancelled'];
 

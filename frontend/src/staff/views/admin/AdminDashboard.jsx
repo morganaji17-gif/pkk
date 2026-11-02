@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom'
 import RevenueTrendChart from '../../components/charts/RevenueTrendChart'
 import StatusBreakdown from '../../components/charts/StatusBreakdown'
 import LowStockSection from '../../components/LowStockSection'
+import PendingProofPayments from '../../components/PendingProofPayments'
+import TopProductsSection from '../../components/TopProductsSection'
 import { useDashboardStats } from '../../context/DashboardStatsContext'
 import { useDayReport, useWeeklyReport } from '../../hooks/useReports'
 import { useRecentOrders } from '../../hooks/useRecentOrders'
@@ -62,6 +64,13 @@ export default function AdminDashboard() {
   const statusCounts = useMemo(() => countStatuses(day.report), [day.report])
   const summary = day.report?.summary
 
+  // Tren pendapatan vs kemarin.
+  const yesterday = Number(stats.yesterday_revenue) || 0
+  const today = Number(stats.today_revenue) || 0
+  const trendDelta = today - yesterday
+  const trendPercent =
+    yesterday > 0 ? Math.round((trendDelta / yesterday) * 100) : today > 0 ? 100 : 0
+
   const todayLabel = new Date().toLocaleDateString('id-ID', {
     day: 'numeric',
     month: 'long',
@@ -71,8 +80,18 @@ export default function AdminDashboard() {
   return (
     <div className="staff-dashboard">
       <header className="dash-header">
-        <h1 className="dash-header__title">Dashboard</h1>
-        <p className="dash-header__date">{todayLabel}</p>
+        <div className="dash-header__row">
+          <div>
+            <h1 className="dash-header__title">Dashboard</h1>
+            <p className="dash-header__date">{todayLabel}</p>
+          </div>
+          <nav className="dash-quicklinks" aria-label="Akses cepat">
+            <Link to="/admin/products" className="btn btn--secondary">Kelola Menu</Link>
+            <Link to="/admin/tables" className="btn btn--secondary">Meja & QR</Link>
+            <Link to="/admin/reports/sales" className="btn btn--secondary">Laporan</Link>
+            <Link to="/admin/staff" className="btn btn--secondary">Staf</Link>
+          </nav>
+        </div>
         <p className="dash-header__ops">
           <span>
             <strong className={stats.pending_orders > 0 ? 'is-alert' : ''}>
@@ -106,6 +125,9 @@ export default function AdminDashboard() {
             <div className="dash-metrics__item">
               <dt>Pendapatan hari ini</dt>
               <dd>{formatRupiah(stats.today_revenue || summary.total_revenue)}</dd>
+              <span className={`dash-trend ${trendDelta >= 0 ? 'dash-trend--up' : 'dash-trend--down'}`}>
+                {trendDelta >= 0 ? '▲' : '▼'} {Math.abs(trendPercent)}% vs kemarin
+              </span>
             </div>
             <div className="dash-metrics__item">
               <dt>Transaksi</dt>
@@ -193,6 +215,15 @@ export default function AdminDashboard() {
           )}
         </section>
       </div>
+
+      {(stats.pending_proofs > 0 || stats.today_top_products?.length > 0) && (
+        <div className="dash-two-col">
+          {(stats.pending_proofs > 0 || stats.pending_proof_list?.length > 0) && (
+            <PendingProofPayments />
+          )}
+          <TopProductsSection />
+        </div>
+      )}
 
       <LowStockSection />
     </div>

@@ -173,4 +173,52 @@ class CustomerOrderSecurityTest extends \Tests\TestCase
         $expectedUrl = config('app.frontend_url').'/menu?table='.$table->id;
         $this->assertStringContainsString('/menu?table='.$table->id, $expectedUrl);
     }
+
+    // I. Pelanggan hanya dapat menambah menu saat pesanan masih pending (belum di-ACC kasir).
+    public function test_customer_can_append_while_pending()
+    {
+        $cat = $this->createCategory();
+        $prod = $this->createProduct($cat, 10);
+        $table = $this->createTable('8');
+        $order = $this->createOrder($table, $prod);
+        $res = $this->postJson('/api/checkout', [
+            'restaurant_table_id'=>$table->id,
+            'customer_name'=>'Budi',
+            'payment_method'=>'cash',
+            'tracking_token'=>$order['tracking_token'],
+            'items'=>[['product_id'=>$prod->id,'quantity'=>1]]
+        ]);
+        $res->assertStatus(200);
+        $this->assertEquals(8, $prod->fresh()->stock);
+    }
+
+    public function test_customer_cannot_append_after_cashier_confirms()
+    {
+        $cat = $this->createCategory();
+        $prod = $this->createProduct($cat, 10);
+        $table = $this->createTable('9');
+        $order = $this->createOrder($table, $prod);
+
+        // Kasir ACC pesanan: pending -> confirmed.
+        $admin = User::factory()->create(['role'=>'admin','password'=>Hash::make('Admin123!')]);
+        $token = $admin->createToken('t')->plainTextToken;
+        $this->patchJson("/api/orders/{$order['id']}/status", ['status'=>'confirmed'], ['Authorization'=>"Bearer $token"])
+            ->assertStatus(200);
+
+        // Setelah ACC, pelanggan tidak boleh menambah menu lagi.
+        $res = $this->postJson('/api/checkout', [
+            'restaurant_table_id'=>$table->id,
+            'customer_name'=>'Budi',
+            'payment_method'=>'cash',
+            'tracking_token'=>$order['tracking_token'],
+            'items'=>[['product_id'=>$prod->id,'quantity'=>1]]
+        ]);
+        $res->assertStatus(422);
+        // Stok tidak berkurang dan subtotal tidak berubah.
+        $this->assertEquals(9, $prod->fresh()->stock);
+        $this->assertDatabaseHas('orders', [
+            'id' => $order['id'],
+            'subtotal' => 10000,
+        ]);
+    }
 }

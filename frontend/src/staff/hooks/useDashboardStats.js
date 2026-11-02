@@ -20,6 +20,15 @@ const EMPTY = {
   today_profit: 0,
   today_average: 0,
   today_label: '',
+  yesterday_revenue: 0,
+  pending_proof_list: [],
+  today_top_products: [],
+}
+
+const STATS_REFRESH_EVENT = 'pesananin:stats-refresh'
+
+export function notifyDashboardStatsRefresh() {
+  window.dispatchEvent(new Event(STATS_REFRESH_EVENT))
 }
 
 export function useDashboardStats() {
@@ -44,6 +53,17 @@ export function useDashboardStats() {
     return () => {
       cancelled = true
     }
+  }, [])
+
+  useEffect(() => {
+    const handleRefresh = () => {
+      clearCacheFor('/dashboard/stats')
+      getDashboardStats()
+        .then((data) => setStatsRef.current(data))
+        .catch(() => {})
+    }
+    window.addEventListener(STATS_REFRESH_EVENT, handleRefresh)
+    return () => window.removeEventListener(STATS_REFRESH_EVENT, handleRefresh)
   }, [])
 
   useStaffRealtime({

@@ -6,6 +6,9 @@ const DashboardStatsContext = createContext({
   low_stock_count: 0,
   maintenance_tables: 0,
   occupied_tables: 0,
+  yesterday_revenue: 0,
+  pending_proof_list: [],
+  today_top_products: [],
 })
 
 export function DashboardStatsProvider({ stats, children }) {

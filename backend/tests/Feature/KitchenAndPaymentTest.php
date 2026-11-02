@@ -184,7 +184,11 @@ class KitchenAndPaymentTest extends \Tests\TestCase
             'pending_orders', 'confirmed_orders', 'preparing_orders', 'ready_orders',
             'unpaid_orders', 'pending_proofs',
             'today_revenue', 'today_transactions', 'today_average',
+            'yesterday_revenue', 'pending_proof_list', 'today_top_products',
         ]]);
+        $this->assertIsArray($res->json('data.pending_proof_list'));
+        $this->assertIsArray($res->json('data.today_top_products'));
+        $this->assertGreaterThanOrEqual(0, (int) $res->json('data.yesterday_revenue'));
     }
 
     public function test_checkout_sequential_depletes_stock_second_fails()

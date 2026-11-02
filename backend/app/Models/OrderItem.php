@@ -13,11 +13,13 @@ class OrderItem extends Model
         'price',
         'subtotal',
         'notes',
+        'selected_options',
     ];
 
     protected $casts = [
         'price' => 'decimal:2',
         'subtotal' => 'decimal:2',
+        'selected_options' => 'array',
     ];
 
     public function order()

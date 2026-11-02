@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\RealtimeController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\RestaurantTableController;
 use App\Http\Controllers\Api\OrderController;
+use App\Http\Controllers\Api\ProductOptionsController;
 use App\Http\Controllers\Api\SettingsController;
 use App\Http\Controllers\Api\StockMutationController;
 use App\Http\Controllers\Api\UserController;
@@ -59,6 +60,21 @@ Route::middleware(['auth:sanctum', 'role:admin'])->group(function () {
 
     Route::apiResource('products', ProductController::class)
         ->except(['index', 'show']);
+
+    // Varian/opsi menu per produk
+    Route::prefix('products/{product}/options')->name('options.')->group(function () {
+        Route::get('/', [ProductOptionsController::class, 'index']);
+        Route::post('/', [ProductOptionsController::class, 'store']);
+        Route::get('/{group}', [ProductOptionsController::class, 'show']);
+        Route::patch('/{group}', [ProductOptionsController::class, 'update']);
+        Route::delete('/{group}', [ProductOptionsController::class, 'destroy']);
+
+        // Opsi di dalam grup
+        Route::get('/{group}/options', [ProductOptionsController::class, 'listOptions']);
+        Route::post('/{group}/options', [ProductOptionsController::class, 'addOption']);
+        Route::patch('/{group}/options/{option}', [ProductOptionsController::class, 'updateOption']);
+        Route::delete('/{group}/options/{option}', [ProductOptionsController::class, 'destroyOption']);
+    });
 
     Route::apiResource('restaurant-tables', RestaurantTableController::class)
         ->except(['index', 'show']);

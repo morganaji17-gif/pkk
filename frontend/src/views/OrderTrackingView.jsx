@@ -16,9 +16,9 @@ const STATUS_LABELS = {
 }
 
 const STATUS_HINTS = {
-  pending: 'Pesanan Anda menunggu untuk diterima kasir.',
-  confirmed: 'Pesanan Anda sudah diterima dan diteruskan ke dapur.',
-  preparing: 'Dapur sedang menyiapkan pesanan Anda.',
+  pending: 'Pesanan Anda menunggu untuk diterima kasir. Anda masih bisa menambah menu.',
+  confirmed: 'Pesanan sudah di-ACC kasir. Untuk pesan lagi, silakan buat pesanan baru.',
+  preparing: 'Dapur sedang menyiapkan pesanan Anda. Untuk pesan lagi, silakan buat pesanan baru.',
   served: 'Pesanan sudah siap dan segera disajikan ke meja Anda.',
   completed: 'Pesanan Anda telah selesai.',
   cancelled: 'Pesanan Anda telah dibatalkan.',
@@ -118,7 +118,8 @@ export default function OrderTrackingView({ trackingToken, onNewOrder, onAddMenu
 
   const statusLabel = STATUS_LABELS[order.status] || order.status
   const statusHint = STATUS_HINTS[order.status]
-  const canAddMenu = ['pending', 'confirmed', 'preparing'].includes(order.status)
+  // Setelah kasir ACC (confirmed), pelanggan tidak dapat menambah menu lagi.
+  const canAddMenu = order.status === 'pending'
   const paymentMethodLabel =
     PAYMENT_METHOD_LABELS[order.payment_method] || order.payment_method || '-'
   const proofSrc = resolveImageUrl(order.proof_url || order.proof_image)
@@ -243,20 +244,33 @@ export default function OrderTrackingView({ trackingToken, onNewOrder, onAddMenu
         <div className="tracking-items">
           <h2 className="tracking-items__title">Pesanan Anda</h2>
           <ul className="checkout-list tracking-items__list">
-            {items.map((item) => (
-              <li key={item.id} className="checkout-item">
-                <span className="checkout-item__name">
-                  {item.product?.name || 'Produk'}
-                  <span className="checkout-item__qty"> × {item.quantity}</span>
-                </span>
-                <span className="checkout-item__subtotal">
-                  {formatRupiah(item.subtotal ?? Number(item.price) * item.quantity)}
-                </span>
-                {item.notes && (
-                  <span className="checkout-item__note">Catatan: {item.notes}</span>
-                )}
-              </li>
-            ))}
+            {items.map((item) => {
+              // Parse selected_options (JSON string dari DB)
+              let opts = []
+              try {
+                const raw = typeof item.selected_options === 'string' ? JSON.parse(item.selected_options) : item.selected_options
+                opts = Array.isArray(raw) ? raw : []
+              } catch { opts = [] }
+              return (
+                <li key={item.id} className="checkout-item">
+                  <span className="checkout-item__name">
+                    {item.product?.name || 'Produk'}
+                    <span className="checkout-item__qty"> × {item.quantity}</span>
+                  </span>
+                  {opts.length > 0 && (
+                    <span className="checkout-item__opts">
+                      {' · '}Varian: {opts.map((o) => o.option_label).join(', ')}
+                    </span>
+                  )}
+                  <span className="checkout-item__subtotal">
+                    {formatRupiah(item.subtotal ?? Number(item.price) * item.quantity)}
+                  </span>
+                  {item.notes && (
+                    <span className="checkout-item__note">Catatan: {item.notes}</span>
+                  )}
+                </li>
+              )
+            })}
           </ul>
         </div>
       )}

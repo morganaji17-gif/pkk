@@ -95,6 +95,13 @@ class RegressionP1Test extends \Tests\TestCase
         // CSV returns text/csv or pdf, but our exportSales with csv returns csv
         // Just check it doesn't 500
         $this->assertTrue(in_array($res->getStatusCode(), [200, 302]));
+
+        // PDF dengan blok tanda tangan admin
+        $pdfRes = $this->getJson('/api/reports/sales/export?period=day&date=2026-09-20', ['Authorization'=>"Bearer $token"]);
+        $pdfRes->assertStatus(200)->assertHeader('Content-Type', 'application/pdf');
+        $body = $pdfRes->getContent();
+        $this->assertStringStartsWith('%PDF', $body);
+        $this->assertTrue(strlen($body) > 1000);
     }
 
     public function test_audit_and_stock_pagination_filters()
