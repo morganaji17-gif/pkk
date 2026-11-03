@@ -254,11 +254,6 @@ export default function CashierOrderDetailPage() {
             Akun dapur hanya boleh confirmed → preparing → served (siap) → completed.
           </p>
         )}
-        {isCashier && (
-          <p className="staff-payment__hint">
-            Akun kasir hanya boleh menerima pending menjadi confirmed, menyelesaikan served menjadi completed, dan verifikasi pembayaran. Proses memasak dilakukan dapur.
-          </p>
-        )}
         {cta && (
           <button
             type="button"
@@ -351,8 +346,7 @@ export default function CashierOrderDetailPage() {
               </p>
             )}
             <p className="staff-payment__hint">
-              Pelanggan telah memilih metode pembayaran. Kasir hanya perlu
-              mengonfirmasi pembayaran saat sudah diterima.
+              Kasir hanya perlu mengonfirmasi pembayaran saat sudah diterima.
             </p>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <button
