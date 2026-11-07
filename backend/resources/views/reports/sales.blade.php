@@ -52,6 +52,7 @@
   table.sign-box td { font-size: 10px; color: #2a1a1a; text-align: center; padding: 2px 6px; }
   .sign-date { font-size: 10px; color: #2a1a1a; }
   .sign-space { height: 52px; border-bottom: 1px dotted #7f1d1d; }
+  .sign-img { height: 48px; width: 67px; }
   .sign-name { font-weight: bold; padding-top: 4px !important; }
   .sign-role { color: #7f1d1d; }
 </style>
@@ -219,9 +220,9 @@
             </td>
           </tr>
           <tr><td>Dibuat oleh,</td></tr>
-          <tr><td class="sign-space">&nbsp;</td></tr>
+          <tr><td class="sign-space">@if (!empty($signaturePath))<img src="{{ $signaturePath }}" alt="" class="sign-img">@else&nbsp;@endif</td></tr>
           <tr><td class="sign-name">{{ $createdBy }}</td></tr>
-          <tr><td class="sign-role">Admin Pesanin</td></tr>
+          <tr><td class="sign-role">{{ $createdByRole ?? 'Admin Pesanin' }}</td></tr>
         </table>
       </td>
     </tr>

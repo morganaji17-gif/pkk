@@ -1,20 +1,10 @@
-import { formatRupiah, formatDateTime, resolveImageUrl, getOrderItems } from '../../utils/format'
+import { formatRupiah, formatDateTime, resolveImageUrl, getOrderItems, parseSelectedOptions } from '../../utils/format'
 import StatusBadge from './StatusBadge'
 import TableStatusBadge from './TableStatusBadge'
 
 export default function OrderDetail({ order }) {
   const items = getOrderItems(order).map((item) => {
-    // Parsing selected_options (JSON) dari DB
-    let opts = []
-    try {
-      if (typeof item.selected_options === 'string') {
-        opts = JSON.parse(item.selected_options)
-      } else if (Array.isArray(item.selected_options)) {
-        opts = item.selected_options
-      }
-    } catch {
-      opts = []
-    }
+    const opts = parseSelectedOptions(item.selected_options)
     const optLabels = (opts || [])
       .filter((o) => o?.option_label)
       .map((o) => o.option_label)

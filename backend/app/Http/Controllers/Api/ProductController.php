@@ -8,6 +8,7 @@ use App\Http\Requests\Product\StoreProductRequest;
 use App\Http\Requests\Product\UpdateProductRequest;
 use App\Http\Requests\Product\IndexProductRequest;
 use App\Services\AuditLogger;
+use App\Services\ProductOptionDefaults;
 use App\Services\Realtime;
 use App\Services\StockMutationService;
 use Illuminate\Support\Facades\Storage;
@@ -61,6 +62,8 @@ public function store(StoreProductRequest $request)
 
     $product = Product::create($data);
 
+    ProductOptionDefaults::apply($product);
+
     StockMutationService::recordSet($product, (int) $product->stock, 'create');
 
     Realtime::push('products', ['type' => 'product.changed']);
@@ -84,6 +87,8 @@ public function store(StoreProductRequest $request)
      */
     public function show(Product $product)
     {
+        // Pastikan produk lama juga punya grup opsi default (idempoten).
+        ProductOptionDefaults::apply($product);
         $product->load(['category', 'optionGroups.options']);
 
         return response()->json([
@@ -109,6 +114,9 @@ public function store(StoreProductRequest $request)
         }
 
         $product->update($data);
+
+        // Pastikan produk lama juga punya grup opsi default (idempoten).
+        ProductOptionDefaults::apply($product);
 
         if ((int) $product->stock !== (int) $old['stock']) {
             StockMutationService::recordSet($product, (int) $product->stock, 'update');

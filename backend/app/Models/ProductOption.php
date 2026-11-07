@@ -14,10 +14,12 @@ class ProductOption extends Model
         'option_group_id',
         'label',
         'additional_price',
+        'sort_order',
     ];
 
     protected $casts = [
         'additional_price' => 'decimal:2',
+        'sort_order' => 'integer',
     ];
 
     public function group()

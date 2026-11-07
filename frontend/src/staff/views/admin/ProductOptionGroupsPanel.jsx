@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+/* eslint-disable react-hooks/set-state-in-effect -- load groups when product.id changes */
+import { useCallback, useEffect, useState } from 'react'
 import { formatRupiah } from '../../../utils/format'
 import { toastError, toastSuccess } from '../../../utils/swal'
 import {
@@ -25,7 +26,7 @@ export default function ProductOptionGroupsPanel({ product }) {
   const [addingOptionTo, setAddingOptionTo] = useState(null)
   const [optionForm, setOptionForm] = useState({ label: '', additional_price: '' })
 
-  const loadGroups = async () => {
+  const loadGroups = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
@@ -36,11 +37,11 @@ export default function ProductOptionGroupsPanel({ product }) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [product.id])
 
   useEffect(() => {
     loadGroups()
-  }, [product.id])
+  }, [loadGroups])
 
   const handleCreateGroup = async () => {
     if (!createForm.name.trim()) return
@@ -49,6 +50,9 @@ export default function ProductOptionGroupsPanel({ product }) {
       const data = await createProductOptionGroup(product.id, {
         name: createForm.name.trim(),
         selection_type: createForm.selection_type,
+        required: createForm.required || false,
+        min_selections: createForm.selection_type === 'single' ? 1 : 0,
+        max_selections: createForm.selection_type === 'single' ? 1 : null,
       })
       setGroups((prev) => [...prev, data])
       setCreateForm({ name: '', selection_type: 'single' })
@@ -63,8 +67,14 @@ export default function ProductOptionGroupsPanel({ product }) {
   const handleUpdateGroup = async (group) => {
     if (!editForm.name.trim()) return
     try {
-      const updated = await updateProductOptionGroup(product.id, group.id, editForm)
-      setGroups((prev) => prev.map((g) => (g.id === group.id ? updated : g)))
+      const updated = await updateProductOptionGroup(product.id, group.id, {
+        name: editForm.name.trim(),
+        selection_type: editForm.selection_type,
+        required: Boolean(group.required),
+        min_selections: group.selection_type === 'single' ? 1 : (Number(group.min_selections) || 0),
+        max_selections: group.selection_type === 'single' ? 1 : (group.max_selections != null ? Number(group.max_selections) : null),
+      })
+      setGroups((prev) => prev.map((g) => (g.id === group.id ? { ...g, ...updated } : g)))
       setEditingGroup(null)
       toastSuccess('Grup varian diperbarui')
     } catch (err) {

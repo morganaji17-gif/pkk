@@ -8,7 +8,7 @@ import { SkeletonTable } from '../../../components/Skeleton'
 import { useOrders } from '../../hooks/useOrders'
 import { useStaffRealtime } from '../../hooks/useStaffRealtime'
 import { updateOrderStatus } from '../../../api/client'
-import { formatDateTime, getOrderItems } from '../../../utils/format'
+import { formatDateTime, getOrderItems, parseSelectedOptions } from '../../../utils/format'
 import { toastSuccess } from '../../../utils/swal'
 
 const COLUMNS = [
@@ -40,13 +40,7 @@ function KdsCard({ order, busy, onAction }) {
       <ul className="kds-card__items">
         {items.map((item) => {
           // Parse selected_options JSON jika ada
-          let opts = []
-          try {
-            const raw = typeof item.selected_options === 'string' ? JSON.parse(item.selected_options) : item.selected_options
-            opts = Array.isArray(raw) ? raw : []
-          } catch {
-            opts = []
-          }
+          const opts = parseSelectedOptions(item.selected_options)
           return (
             <li key={item.id}>
               <span>

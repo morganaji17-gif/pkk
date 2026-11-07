@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { trackOrder, uploadOrderProof } from '../api/client'
 import { useRealtimePoll } from '../hooks/useRealtimePoll'
 import { getOrderEventsPollUrl } from '../api/client'
-import { formatRupiah, formatDateTime, resolveImageUrl, PAYMENT_METHOD_LABELS, getOrderItems } from '../utils/format'
+import { formatRupiah, formatDateTime, resolveImageUrl, PAYMENT_METHOD_LABELS, getOrderItems, parseSelectedOptions } from '../utils/format'
 import LoadingState from '../components/LoadingState'
 import ErrorState from '../components/ErrorState'
 
@@ -246,11 +246,7 @@ export default function OrderTrackingView({ trackingToken, onNewOrder, onAddMenu
           <ul className="checkout-list tracking-items__list">
             {items.map((item) => {
               // Parse selected_options (JSON string dari DB)
-              let opts = []
-              try {
-                const raw = typeof item.selected_options === 'string' ? JSON.parse(item.selected_options) : item.selected_options
-                opts = Array.isArray(raw) ? raw : []
-              } catch { opts = [] }
+              const opts = parseSelectedOptions(item.selected_options)
               return (
                 <li key={item.id} className="checkout-item">
                   <span className="checkout-item__name">

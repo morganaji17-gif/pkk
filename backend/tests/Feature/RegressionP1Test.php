@@ -102,6 +102,39 @@ class RegressionP1Test extends \Tests\TestCase
         $body = $pdfRes->getContent();
         $this->assertStringStartsWith('%PDF', $body);
         $this->assertTrue(strlen($body) > 1000);
+
+        // Admin memakai tanda tangan digital (PNG + alpha mask = 2 objek image)
+        $this->assertGreaterThan(0, substr_count($body, '/Subtype /Image'));
+    }
+
+    /** Laporan yang dibuat kasir TIDAK memakai gambar tanda tangan (untuk TTD basah). */
+    public function test_cashier_report_has_no_digital_signature()
+    {
+        $admin = $this->admin();
+        $cashier = $this->cashier();
+
+        // Service: admin dapat path, kasir null
+        $this->actingAs($admin);
+        $service = app(\App\Services\SalesReportService::class);
+        $this->assertNotNull($service->signaturePath());
+        $this->assertStringEndsWith('ttd.png', $service->signaturePath());
+        $this->assertEquals('Admin Pesanin', $service->createdByRoleLabel());
+
+        $this->actingAs($cashier);
+        $this->assertNull($service->signaturePath());
+        $this->assertEquals('Kasir Pesanin', $service->createdByRoleLabel());
+
+        // PDF kasir tetap bisa diunduh, tapi tanpa objek gambar
+        $token = $cashier->createToken('t')->plainTextToken;
+        $res = $this->getJson('/api/reports/sales/export?period=day&date=2026-09-20', ['Authorization'=>"Bearer $token"]);
+        $res->assertStatus(200)->assertHeader('Content-Type', 'application/pdf');
+        $body = $res->getContent();
+        $this->assertStringStartsWith('%PDF', $body);
+        $this->assertSame(0, substr_count($body, '/Subtype /Image'));
+
+        // Nama penanda tangan mengikuti user yang login
+        $this->assertStringContainsString($cashier->name, $service->createdByLabel());
+        $this->assertStringContainsString('Kasir', $service->createdByLabel());
     }
 
     public function test_audit_and_stock_pagination_filters()

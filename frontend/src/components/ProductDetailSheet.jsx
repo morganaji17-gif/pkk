@@ -5,6 +5,7 @@ import { formatRupiah, resolveImageUrl } from '../utils/format'
 import { computeItemUnitPrice } from '../hooks/useCart'
 import ErrorState from './ErrorState'
 import QuantityStepper from './QuantityStepper'
+import Swal from 'sweetalert2'
 
 export default function ProductDetailSheet({ open, productId, menuProducts = [], onClose, onAdd }) {
   const [product, setProduct] = useState(null)
@@ -78,36 +79,93 @@ export default function ProductDetailSheet({ open, productId, menuProducts = [],
     setReloadKey((n) => n + 1)
   }
 
+  const optionGroups = (product?.optionGroups || product?.option_groups || []).filter(
+    (group) => Array.isArray(group.options) && group.options.length > 0
+  )
+
   const handleToggleOption = (groupId, optionId) => {
     setSelectedOptions((prev) => {
-      const group = product?.optionGroups?.find((g) => g.id === groupId)
-      if (!group) return prev
+      const group = optionGroups.find((g) => Number(g.id) === Number(groupId))
+      const option = group?.options?.find((o) => Number(o.id) === Number(optionId))
+      if (!group || !option) return prev
+
+      const entry = {
+        option_group_id: Number(group.id),
+        option_id: Number(option.id),
+        option_label: option.label,
+        additional_price: Number(option.additional_price) || 0,
+      }
+
       if (group.selection_type === 'single') {
-        const existing = prev.find((o) => o.option_group_id === groupId)
-        if (existing?.option_id === optionId) {
-          return prev.filter((o) => o.option_group_id !== groupId)
+        const existing = prev.find((o) => Number(o.option_group_id) === Number(groupId))
+        if (existing && Number(existing.option_id) === Number(optionId)) {
+          return prev.filter((o) => Number(o.option_group_id) !== Number(groupId))
         }
         return [
-          ...prev.filter((o) => o.option_group_id !== groupId),
-          { option_group_id: groupId, option_id: optionId },
+          ...prev.filter((o) => Number(o.option_group_id) !== Number(groupId)),
+          entry,
         ]
       }
+
       const exists = prev.some(
-        (o) => o.option_group_id === groupId && o.option_id === optionId
+        (o) => Number(o.option_group_id) === Number(groupId) && Number(o.option_id) === Number(optionId)
       )
       if (exists) {
         return prev.filter(
-          (o) => !(o.option_group_id === groupId && o.option_id === optionId)
+          (o) => !(Number(o.option_group_id) === Number(groupId) && Number(o.option_id) === Number(optionId))
         )
       }
-      return [...prev, { option_group_id: groupId, option_id: optionId }]
+      return [...prev, entry]
     })
   }
 
   const handleAdd = () => {
     if (!product) return
+    const validation = validateOptions()
+    if (!validation.valid) {
+      Swal.fire({
+        toast: true,
+        position: 'top-end',
+        icon: 'warning',
+        title: validation.message,
+        showConfirmButton: false,
+        timer: 3000,
+        timerProgressBar: true,
+      })
+      return
+    }
     onAdd(product, displayQuantity, selectedOptions)
     onClose()
+  }
+
+  const validateOptions = () => {
+    for (const group of optionGroups) {
+      const count = selectedOptions.filter((o) => Number(o.option_group_id) === Number(group.id)).length
+      const min = group.required
+        ? (group.selection_type === 'single' ? 1 : (Number(group.min_selections) || 1))
+        : Number(group.min_selections ?? (group.selection_type === 'single' ? 1 : 0))
+      const max = group.selection_type === 'single' ? 1 : (Number(group.max_selections) || 99)
+
+      if (count < min) {
+        return { valid: false, message: `Pilih minimal ${min} opsi untuk "${group.name}".` }
+      }
+      if (count > max) {
+        return { valid: false, message: `Pilih maksimal ${max} opsi untuk "${group.name}".` }
+      }
+    }
+    return { valid: true }
+  }
+
+  const areAllOptionsSelected = () => {
+    if (optionGroups.length === 0) return true
+    for (const group of optionGroups) {
+      const count = selectedOptions.filter((o) => Number(o.option_group_id) === Number(group.id)).length
+      const min = group.required
+        ? (group.selection_type === 'single' ? 1 : (Number(group.min_selections) || 1))
+        : Number(group.min_selections ?? (group.selection_type === 'single' ? 1 : 0))
+      if (count < min) return false
+    }
+    return true
   }
 
   if (!open) return null
@@ -156,16 +214,27 @@ export default function ProductDetailSheet({ open, productId, menuProducts = [],
               )}
 
               {/* Varian / ops menu */}
-              {product.optionGroups && product.optionGroups.length > 0 && (
+              {optionGroups.length > 0 && (
                 <div className="detail-sheet__options">
                   <p className="detail-sheet__options-title">Pilihan Varian</p>
-                  {product.optionGroups.map((group) => (
+                  {optionGroups.map((group) => (
                     <div key={group.id} className="detail-sheet__option-group">
-                      <span className="detail-sheet__option-group-name">{group.name}</span>
+                      <span className="detail-sheet__option-group-name">
+                        {group.name}
+                        {group.required && (
+                          <span className="detail-sheet__required">Wajib pilih</span>
+                        )}
+                        {group.selection_type === 'single' && (
+                          <span className="detail-sheet__option-count">1 dari 1</span>
+                        )}
+                        {group.selection_type === 'multiple' && group.min_selections > 0 && (
+                          <span className="detail-sheet__option-count">{group.min_selections}–{group.max_selections ?? '∞'}</span>
+                        )}
+                      </span>
                       <div className="detail-sheet__option-items">
                         {group.options.map((opt) => {
                           const isChecked = selectedOptions.some(
-                            (o) => o.option_group_id === group.id && o.option_id === opt.id
+                            (o) => Number(o.option_group_id) === Number(group.id) && Number(o.option_id) === Number(opt.id)
                           )
                           return (
                             <label
@@ -207,7 +276,8 @@ export default function ProductDetailSheet({ open, productId, menuProducts = [],
                   />
                   <button
                     type="button"
-                    className="btn btn--primary btn--grow"
+                    className={`btn btn--primary btn--grow${areAllOptionsSelected() ? '' : ' btn--dimmed'}`}
+                    disabled={!areAllOptionsSelected()}
                     onClick={handleAdd}
                   >
                     Tambah ke Keranjang

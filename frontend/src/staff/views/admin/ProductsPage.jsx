@@ -21,14 +21,7 @@ import ProgressBar from '../../../components/ProgressBar'
 import ProductFilters from '../../components/ProductFilters'
 import { useStaffRealtime } from '../../hooks/useStaffRealtime'
 import { confirmDelete, toastError, toastSuccess } from '../../../utils/swal'
-import {
-  createProductOptionGroup,
-  deleteProductOptionGroup,
-  createProductOption,
-  deleteProductOption,
-  updateProductOption,
-} from '../../../api/client'
-import ProductOptionGroupsPanel from './ProductOptionGroupsPanel'
+import ProductOptionsEditor from './ProductOptionsEditor'
 
 const EMPTY_FORM = {
   category_id: '',
@@ -228,6 +221,7 @@ export default function ProductsPage() {
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState(null)
   const [fieldErrors, setFieldErrors] = useState(null)
+  const [expandedProductId, setExpandedProductId] = useState(null)
 
   useEffect(() => {
     let cancelled = false
@@ -357,9 +351,11 @@ export default function ProductsPage() {
         title="Produk"
         subtitle="Kelola daftar menu produk."
         actions={
-          <button type="button" className="btn btn--primary" onClick={openCreate}>
-            + Tambah Produk
-          </button>
+          <>
+            <button type="button" className="btn btn--primary" onClick={openCreate}>
+              + Tambah Produk
+            </button>
+          </>
         }
       />
 
@@ -441,14 +437,23 @@ export default function ProductsPage() {
                       >
                         Hapus
                       </button>
+                      <button
+                        type="button"
+                        className="btn btn--secondary btn--sm"
+                        onClick={() => setExpandedProductId(expandedProductId === product.id ? null : product.id)}
+                      >
+                        {expandedProductId === product.id ? 'Sembunyikan Opsi' : 'Kelola Opsi'}
+                      </button>
                     </div>
                   </td>
                 </tr>
-                <tr className="staff-row-options">
-                  <td colSpan={6}>
-                    <ProductOptionGroupsPanel product={product} />
-                  </td>
-                </tr>
+                {expandedProductId === product.id && (
+                  <tr>
+                    <td colSpan={6}>
+                      <ProductOptionsEditor product={product} />
+                    </td>
+                  </tr>
+                )}
                 </>
               ))}
             </tbody>

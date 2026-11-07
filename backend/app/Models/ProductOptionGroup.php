@@ -15,6 +15,17 @@ class ProductOptionGroup extends Model
         'product_id',
         'name',
         'selection_type',
+        'required',
+        'min_selections',
+        'max_selections',
+        'sort_order',
+    ];
+
+    protected $casts = [
+        'required' => 'boolean',
+        'min_selections' => 'integer',
+        'max_selections' => 'integer',
+        'sort_order' => 'integer',
     ];
 
     public function product()
@@ -24,6 +35,6 @@ class ProductOptionGroup extends Model
 
     public function options()
     {
-        return $this->hasMany(ProductOption::class, 'option_group_id');
+        return $this->hasMany(ProductOption::class, 'option_group_id')->orderBy('sort_order')->orderBy('label');
     }
 }

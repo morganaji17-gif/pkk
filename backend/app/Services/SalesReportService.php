@@ -184,6 +184,38 @@ class SalesReportService
         return trim($user->name . ' (' . $role . ')');
     }
 
+    /**
+     * Path gambar tanda tangan untuk blok pengesahan laporan.
+     * Hanya admin yang memakai tanda tangan digital; kasir dibiarkan kosong
+     * agar bisa ditandatangani basah.
+     */
+    public function signaturePath(): ?string
+    {
+        $user = Auth::user();
+        if (!$user || $user->role !== 'admin') {
+            return null;
+        }
+
+        $path = public_path('images/ttd.png');
+
+        return is_file($path) ? $path : null;
+    }
+
+    /**
+     * Label jabatan di bawah nama penanda tangan.
+     */
+    public function createdByRoleLabel(): string
+    {
+        $user = Auth::user();
+        if (!$user) return 'Pesanin';
+
+        return match ($user->role) {
+            'admin' => 'Admin Pesanin',
+            'kitchen' => 'Dapur Pesanin',
+            default => 'Kasir Pesanin',
+        };
+    }
+
     public function todayStats(): array
     {
         $tz = self::BUSINESS_TIMEZONE;

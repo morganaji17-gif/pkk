@@ -1,5 +1,48 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
+const CART_STORAGE_KEY = 'pesanin_cart_v1'
+
+function readStoredCart() {
+  try {
+    const raw = localStorage.getItem(CART_STORAGE_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return []
+    return parsed.filter(
+      (item) =>
+        item &&
+        item.product &&
+        item.product.id !== undefined &&
+        Number(item.quantity) > 0
+    )
+  } catch {
+    return []
+  }
+}
+
+function persistCart(items) {
+  try {
+    if (items.length === 0) {
+      localStorage.removeItem(CART_STORAGE_KEY)
+      return
+    }
+    localStorage.setItem(
+      CART_STORAGE_KEY,
+      JSON.stringify(
+        items.map(({ key, product, quantity, notes, selectedOptions }) => ({
+          key,
+          product,
+          quantity,
+          notes: notes || undefined,
+          selectedOptions: Array.isArray(selectedOptions) ? selectedOptions : [],
+        }))
+      )
+    )
+  } catch {
+    // localStorage penuh / tidak tersedia — abaikan.
+  }
+}
+
 /**
  * Buat key unik per item keranjang (product + pilihan varian).
  */
@@ -27,7 +70,12 @@ export function computeItemUnitPrice(product, selectedOptions) {
 }
 
 export function useCart() {
-  const [items, setItems] = useState([])
+  const [items, setItems] = useState(() => readStoredCart())
+
+  // Persist setiap perubahan keranjang agar pilihan opsi tetap ada saat refresh.
+  useEffect(() => {
+    persistCart(items)
+  }, [items])
 
   // Key per item = productId + sorted option_ids
   const getKey = useCallback((product, selectedOptions) => {

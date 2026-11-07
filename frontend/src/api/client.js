@@ -52,6 +52,19 @@ function getCached(path) {
 function setCached(path, data) {
   _cache.set(path, { data, ts: Date.now() })
 }
+
+/**
+ * Laravel men-serialize relasi `optionGroups` sebagai `option_groups`.
+ * Samakan ke camelCase agar seluruh UI customer memakai satu bentuk.
+ * Selalu kembalikan objek BARU agar cache tidak termutasi.
+ */
+function normalizeProduct(product) {
+  if (!product || typeof product !== 'object') return product
+  if (!Array.isArray(product.optionGroups) && Array.isArray(product.option_groups)) {
+    return { ...product, optionGroups: product.option_groups }
+  }
+  return product
+}
 export function clearCacheFor(pathFragment) {
   for (const k of _cache.keys()) if (k.includes(pathFragment)) _cache.delete(k)
 }
@@ -220,7 +233,7 @@ export function peekProductCache(id) {
   const numericId = Number(id)
 
   const direct = getCached(`/products/${id}`)
-  if (direct) return direct
+  if (direct) return normalizeProduct(direct)
 
   for (const key of Array.from(_cache.keys())) {
     if (!key.startsWith('/products?')) continue
@@ -233,7 +246,7 @@ export function peekProductCache(id) {
         : null
     if (!list) continue
     const found = list.find((item) => Number(item?.id) === numericId)
-    if (found) return found
+    if (found) return normalizeProduct(found)
   }
 
   return null
@@ -308,7 +321,8 @@ export async function getProducts(params = {}) {
   // Seed cache detail per produk agar klik berikutnya tidak perlu request baru.
   for (const item of items) {
     if (item && item.id !== undefined && item.id !== null) {
-      setCached(`/products/${item.id}`, item)
+      const normalized = normalizeProduct(item)
+      setCached(`/products/${item.id}`, normalized)
     }
   }
   if (payload?.meta) return { items, meta: payload.meta }
@@ -318,7 +332,7 @@ export async function getProducts(params = {}) {
 export function getProduct(id, opts = {}) {
   return request(`/products/${id}`, {
     ...(opts.revalidate ? { revalidate: true } : null),
-  })
+  }).then(normalizeProduct)
 }
 
 export async function getCategories(params = {}) {

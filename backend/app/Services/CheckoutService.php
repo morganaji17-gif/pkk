@@ -69,19 +69,18 @@ class CheckoutService
                 }
 
                 // Hitung harga satuan = harga dasar + tambahan ops/varian
-                $optionTotal = $this->resolveAndAccumulateOptions(
+                $resolvedOptions = $this->resolveAndAccumulateOptions(
                     $product,
-                    $item['selected_options'] ?? [],
-                    $item['quantity']
+                    $item['selected_options'] ?? []
                 );
-                $unitPrice = (float) $product->price + $optionTotal;
+                $unitPrice = (float) $product->price + $resolvedOptions['total'];
                 $subtotal += $unitPrice * (int) $item['quantity'];
 
                 $lineItems[] = [
                     'product' => $product,
                     'quantity' => (int) $item['quantity'],
                     'notes' => $item['notes'] ?? null,
-                    'selected_options' => $optionTotal > 0 ? $this->snapshotSelectedOptions($item['selected_options'] ?? []) : null,
+                    'selected_options' => $resolvedOptions['snapshot'],
                     'unit_price' => $unitPrice,
                 ];
             }
@@ -164,72 +163,124 @@ class CheckoutService
     }
 
     /**
-     * Validasi bahwa semua opsi milik produk yang dimaksud.
-     * Kembalikan total harga tambahan sesuai jumlah item yang dipesan.
+     * Validasi opsi milik produk, hitung total harga tambahan per-unit, dan buat
+     * snapshot immutable dari data di database (bukan dari payload client).
+     * CATATAN: Nilai `total` adalah tambahan PER ITEM (bukan dikali quantity).
+     *         Pengalian dengan quantity sudah dilakukan di caller (handle).
+     *
+     * @return array{total: float, snapshot: array|null}
      */
-    private function resolveAndAccumulateOptions(
-        Product $product,
-        array $selectedOptions,
-        int $quantity
-    ): float {
-        $groupIdMap = $product->optionGroups()->pluck('id')->mapWithKeys(fn ($id) => [$id => $id])->toArray();
+    private function resolveAndAccumulateOptions(Product $product, array $selectedOptions): array
+    {
+        $groupIdMap = $product->optionGroups()
+            ->pluck('id')
+            ->mapWithKeys(fn ($id) => [(int) $id => (int) $id])
+            ->toArray();
 
+        $groupDetails = $product->optionGroups()
+            ->select(['id', 'name', 'selection_type', 'required', 'min_selections', 'max_selections'])
+            ->get()
+            ->keyBy->id;
+
+        // Jika tidak ada selected_options, cek apakah ada grup wajib yang kosong
         if (empty($selectedOptions) || !is_array($selectedOptions)) {
-            return 0.0;
+            foreach ($groupDetails as $groupId => $group) {
+                if ($group->required && isset($groupIdMap[$groupId])) {
+                    $min = $group->min_selections ?? 1;
+                    throw new \InvalidArgumentException(
+                        "Pilih minimal {$min} opsi untuk '{$group->name}'."
+                    );
+                }
+            }
+            return ['total' => 0.0, 'snapshot' => null];
         }
 
         $total = 0.0;
+        $snapshot = [];
+        $seen = [];
+        $countPerGroup = [];
+
         foreach ($selectedOptions as $sel) {
             if (!isset($sel['option_group_id']) || !isset($sel['option_id'])) {
                 continue;
             }
 
-            if (!isset($groupIdMap[(int) $sel['option_group_id']])) {
+            $groupId = (int) $sel['option_group_id'];
+            $optionId = (int) $sel['option_id'];
+
+            if (!isset($groupIdMap[$groupId])) {
                 throw new \InvalidArgumentException(
-                    "Opsi option_group_id={$sel['option_group_id']} tidak dimiliki produk {$product->name}."
+                    "Opsi option_group_id={$groupId} tidak dimiliki produk {$product->name}."
                 );
             }
 
-            // Ambil langsung dari database untuk efisiensi
+            $pairKey = $groupId . ':' . $optionId;
+            if (isset($seen[$pairKey])) {
+                continue;
+            }
+            $seen[$pairKey] = true;
+
             $optRecord = DB::table('product_options')
                 ->join('product_option_groups', 'product_options.option_group_id', '=', 'product_option_groups.id')
                 ->where('product_option_groups.product_id', $product->id)
-                ->where('product_options.id', (int) $sel['option_id'])
+                ->where('product_option_groups.id', $groupId)
+                ->where('product_options.id', $optionId)
+                ->select(
+                    'product_options.id',
+                    'product_options.label',
+                    'product_options.additional_price',
+                    'product_option_groups.name as group_name',
+                    'product_option_groups.selection_type'
+                )
                 ->first();
 
             if (!$optRecord) {
                 throw new \InvalidArgumentException(
-                    "Opsi option_id={$sel['option_id']} tidak ditemukan atau tidak milik produk {$product->name}."
+                    "Opsi option_id={$optionId} tidak ditemukan atau tidak milik produk {$product->name}."
+                );
+            }
+
+            $countPerGroup[$groupId] = ($countPerGroup[$groupId] ?? 0) + 1;
+            if ($optRecord->selection_type === 'single' && $countPerGroup[$groupId] > 1) {
+                throw new \InvalidArgumentException(
+                    "Grup opsi {$optRecord->group_name} hanya boleh memilih satu opsi."
                 );
             }
 
             $total += (float) $optRecord->additional_price;
-        }
-
-        return $total * $quantity;
-    }
-
-    /**
-     * Snapshot pilihan varian yang dipilih pelanggan (immutable per order).
-     * Format: [{option_group_id, option_id, option_label, additional_price}, ...]
-     */
-    private function snapshotSelectedOptions(array $selectedOptions): ?array
-    {
-        if (empty($selectedOptions) || !is_array($selectedOptions)) {
-            return null;
-        }
-
-        $snapshot = [];
-        foreach ($selectedOptions as $sel) {
             $snapshot[] = [
-                'option_group_id' => (int) ($sel['option_group_id'] ?? 0),
-                'option_id' => (int) ($sel['option_id'] ?? 0),
-                'option_label' => $sel['label'] ?? '',
-                'additional_price' => (float) ($sel['additional_price'] ?? 0),
+                'option_group_id' => $groupId,
+                'option_group_label' => $optRecord->group_name,
+                'option_id' => $optionId,
+                'option_label' => $optRecord->label,
+                'additional_price' => (float) $optRecord->additional_price,
             ];
         }
 
-        return $snapshot;
+        // Validasi required groups
+        foreach ($groupDetails as $groupId => $group) {
+            if (!$group->required) {
+                continue;
+            }
+            $count = $countPerGroup[$groupId] ?? 0;
+            $min = (int) ($group->min_selections ?? 1);
+            $max = (int) ($group->max_selections ?? ($group->selection_type === 'single' ? 1 : PHP_INT_MAX));
+            if ($count < $min) {
+                throw new \InvalidArgumentException(
+                    "Pilih minimal {$min} opsi untuk '{$group->name}'."
+                );
+            }
+            if ($count > $max) {
+                throw new \InvalidArgumentException(
+                    "Pilih maksimal {$max} opsi untuk '{$group->name}'."
+                );
+            }
+        }
+
+        return [
+            'total' => $total,
+            'snapshot' => empty($snapshot) ? null : $snapshot,
+        ];
     }
 
     private function decrementOrFail(Product $product, int $quantity, string $reason, int $orderId): void

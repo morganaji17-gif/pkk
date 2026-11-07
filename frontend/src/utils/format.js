@@ -46,6 +46,23 @@ export function getOrderItems(order) {
   return items
 }
 
+/**
+ * Parse `selected_options` yang bisa berupa JSON string (dari DB) atau array.
+ * Selalu kembalikan array.
+ */
+export function parseSelectedOptions(value) {
+  if (Array.isArray(value)) return value
+  if (typeof value === 'string' && value) {
+    try {
+      const parsed = JSON.parse(value)
+      return Array.isArray(parsed) ? parsed : []
+    } catch {
+      return []
+    }
+  }
+  return []
+}
+
 export function fieldError(fieldErrors, field) {
   if (!fieldErrors) return null
   const messages = fieldErrors[field]

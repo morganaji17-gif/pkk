@@ -1,5 +1,5 @@
+/* eslint-disable react-hooks/set-state-in-effect -- sync from context prop */
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { confirmOrderPayment, rejectOrderPayment } from '../../api/client'
 import { formatDateTime, formatRupiah, resolveImageUrl } from '../../utils/format'
 import { toastError, toastSuccess } from '../../utils/swal'
@@ -60,13 +60,7 @@ export default function PendingProofPayments() {
   }
 
   return (
-    <section className="dash-panel" aria-label="Bukti pembayaran menunggu">
-      <div className="dash-panel__head">
-        <h2 className="dash-panel__title">Bukti QRIS Menunggu ACC</h2>
-        <Link to="/admin/orders" className="dash-panel__link">
-          Lihat semua
-        </Link>
-      </div>
+    <div className="proof-acc">
       {error && <div className="alert alert--error">{error}</div>}
       {entries.length === 0 ? (
         <p className="chart-empty chart-empty--compact">Tidak ada bukti pembayaran menunggu verifikasi.</p>
@@ -102,15 +96,15 @@ export default function PendingProofPayments() {
                 <div className="proof-acc__actions">
                   <button
                     type="button"
-                    className="btn btn--primary"
+                    className="btn btn--primary btn--sm"
                     disabled={busyId === item.id}
                     onClick={() => handleConfirm(item)}
                   >
-                    {busyId === item.id ? 'Memproses…' : 'ACC'}
+                    {busyId === item.id ? '…' : 'ACC'}
                   </button>
                   <button
                     type="button"
-                    className="btn btn--secondary"
+                    className="btn btn--secondary btn--sm"
                     disabled={busyId === item.id}
                     onClick={() => {
                       setRejectingId(rejectingId === item.id ? null : item.id)
@@ -142,18 +136,18 @@ export default function PendingProofPayments() {
           <div>
             <button
               type="button"
-              className="btn btn--secondary"
+              className="btn btn--secondary btn--sm"
               disabled={busyId !== null}
               onClick={() => {
                 const item = entries.find((i) => i.id === rejectingId)
                 if (item) handleReject(item)
               }}
             >
-              {busyId !== null ? 'Memproses…' : 'Kirim Penolakan'}
+              {busyId !== null ? 'Memproses…' : 'Kirim'}
             </button>
           </div>
         </div>
       )}
-    </section>
+    </div>
   )
 }

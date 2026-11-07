@@ -78,8 +78,8 @@ function App() {
     setTableRetry((n) => n + 1)
   }
 
-  const handleAddProduct = (product, quantity = 1) => {
-    cart.addToCart(product, quantity)
+  const handleAddProduct = (product, quantity = 1, selectedOptions = []) => {
+    cart.addToCart(product, quantity, selectedOptions)
   }
 
   const handleSubmitOrder = async (customerName, paymentMethod = 'cash', orderNotes = '') => {
