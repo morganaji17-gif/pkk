@@ -87,8 +87,8 @@ public function store(StoreProductRequest $request)
      */
     public function show(Product $product)
     {
-        // Pastikan produk lama juga punya grup opsi default (idempoten).
-        ProductOptionDefaults::apply($product);
+        // Opsi default hanya diterapkan saat produk dibuat (store()).
+        // Jangan diterapkan di sini agar perubahan admin di "Kelola Opsi" tidak dibatalkan.
         $product->load(['category', 'optionGroups.options']);
 
         return response()->json([
@@ -115,8 +115,8 @@ public function store(StoreProductRequest $request)
 
         $product->update($data);
 
-        // Pastikan produk lama juga punya grup opsi default (idempoten).
-        ProductOptionDefaults::apply($product);
+        // Opsi tidak lagi disentuh di sini. Admin mengelola opsi lewat
+        // endpoint /products/{product}/options agar perubahannya permanen.
 
         if ((int) $product->stock !== (int) $old['stock']) {
             StockMutationService::recordSet($product, (int) $product->stock, 'update');

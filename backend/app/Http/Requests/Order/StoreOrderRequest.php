@@ -93,18 +93,35 @@ class StoreOrderRequest extends FormRequest
                 if (!is_array($item) || empty($item['product_id'])) {
                     continue;
                 }
-                // Jika ada selected_options, validasi bahwa group_id & option_id punya pasangan lengkap
+
+                // Opsi harus benar-benar milik produk pada baris ini
+                // (bukan sekadar ada di database produk lain).
                 $opts = $item['selected_options'] ?? [];
                 if (!empty($opts)) {
+                    $productId = (int) $item['product_id'];
                     foreach ($opts as $oiIdx => $opt) {
                         $hasGroup = isset($opt['option_group_id']) && !empty($opt['option_group_id']);
                         $hasOption = isset($opt['option_id']) && !empty($opt['option_id']);
                         // Jika hanya salah satu yang ada (tidak berpasangan), tolak
                         if ($hasGroup !== $hasOption) {
-                            // Salah satu ada tapi yang lain tidak — tolak
                             $validator->errors()->add(
                                 "items.{$idx}.selected_options.{$oiIdx}.option_id",
                                 "Untuk setiap opsi harus tercantum option_group_id dan option_id secara berpasangan."
+                            );
+                            continue;
+                        }
+
+                        $belongsToProduct = \Illuminate\Support\Facades\DB::table('product_options')
+                            ->join('product_option_groups', 'product_options.option_group_id', '=', 'product_option_groups.id')
+                            ->where('product_options.id', (int) $opt['option_id'])
+                            ->where('product_option_groups.id', (int) $opt['option_group_id'])
+                            ->where('product_option_groups.product_id', $productId)
+                            ->exists();
+
+                        if (!$belongsToProduct) {
+                            $validator->errors()->add(
+                                "items.{$idx}.selected_options.{$oiIdx}.option_id",
+                                "Opsi tidak milik produk pada baris ini."
                             );
                         }
                     }

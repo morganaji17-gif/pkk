@@ -2190,6 +2190,23 @@
   border-radius: var(--radius-lg);
   padding: 12px;
   min-width: 0;
+  border-top-width: 3px;
+  transition: box-shadow 0.2s;
+}
+/* Kolom NEW — oranye/warning */
+.kds-column--warning {
+  border-top-color: var(--color-warning);
+  background: linear-gradient(to bottom, color-mix(in srgb, var(--color-warning-bg) 40%, var(--color-surface)), var(--color-surface) 80px);
+}
+/* Kolom PREPARING — biru/info */
+.kds-column--info {
+  border-top-color: var(--color-info);
+  background: linear-gradient(to bottom, color-mix(in srgb, var(--color-info-bg) 40%, var(--color-surface)), var(--color-surface) 80px);
+}
+/* Kolom READY — hijau/success */
+.kds-column--success {
+  border-top-color: var(--color-success);
+  background: linear-gradient(to bottom, color-mix(in srgb, var(--color-success-bg) 40%, var(--color-surface)), var(--color-surface) 80px);
 }
 .kds-column__head {
   display: flex;
@@ -2203,13 +2220,18 @@
   font-weight: 800;
   letter-spacing: 0.06em;
 }
+.kds-column--warning .kds-column__title { color: var(--color-warning); }
+.kds-column--info    .kds-column__title { color: var(--color-info); }
+.kds-column--success .kds-column__title { color: var(--color-success); }
 .kds-column__count {
   font-size: 13px;
   font-weight: 800;
-  background: var(--color-muted);
   border-radius: 999px;
   padding: 2px 10px;
 }
+.kds-column--warning .kds-column__count { background: var(--color-warning-bg); color: var(--color-warning); }
+.kds-column--info    .kds-column__count { background: var(--color-info-bg);    color: var(--color-info); }
+.kds-column--success .kds-column__count { background: var(--color-success-bg); color: var(--color-success); }
 .kds-column__hint {
   margin: 4px 0 12px;
   font-size: 12px;
@@ -2226,7 +2248,77 @@
   padding: 12px;
   background: var(--color-background);
   box-shadow: var(--shadow-card);
+  border-top-width: 3px;
+  transition: transform 0.15s, box-shadow 0.15s;
 }
+/* Kartu mengikuti warna kolom parent-nya */
+.kds-column--warning .kds-card { border-top-color: var(--color-warning); }
+.kds-column--info    .kds-card { border-top-color: var(--color-info); }
+.kds-column--success .kds-card { border-top-color: var(--color-success); }
+.kds-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+}
+/* Flash saat pesanan baru masuk (realtime) */
+.kds-card--flash {
+  animation: kds-flash 1s ease-in-out 3;
+}
+@keyframes kds-flash {
+  0%, 100% { box-shadow: var(--shadow-card); }
+  50% {
+    box-shadow: 0 0 0 3px var(--color-primary-soft), 0 0 18px color-mix(in srgb, var(--color-primary) 45%, transparent);
+    transform: translateY(-2px);
+  }
+}
+
+/* Grup item per kategori dalam kartu */
+.kds-card__cat {
+  border-radius: var(--radius-md);
+  padding: 8px 10px;
+  margin: 8px 0;
+  border-left: 4px solid var(--color-border);
+  background: var(--color-surface-subtle);
+}
+.kds-card__cat--food {
+  border-left-color: var(--color-warning);
+  background: color-mix(in srgb, var(--color-warning-bg) 35%, transparent);
+}
+.kds-card__cat--beverage {
+  border-left-color: var(--color-info);
+  background: color-mix(in srgb, var(--color-info-bg) 35%, transparent);
+}
+.kds-card__cat--snack {
+  border-left-color: #8A5A9B;
+  background: color-mix(in srgb, #F3E8FB 35%, transparent);
+}
+.kds-card__cat-label {
+  display: block;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-muted-foreground);
+  margin-bottom: 4px;
+}
+.kds-card__cat--food    .kds-card__cat-label { color: var(--color-warning); }
+.kds-card__cat--beverage .kds-card__cat-label { color: var(--color-info); }
+.kds-card__cat--snack   .kds-card__cat-label { color: #8A5A9B; }
+
+/* Tombol aksi KDS: solid per status, teks tebal, tinggi sentuh dapur */
+.kds-card .kds-action {
+  min-height: 52px;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: #fff;
+  border: none;
+}
+.kds-action--warning { background: var(--color-warning); }
+.kds-action--warning:hover:not(:disabled) { background: color-mix(in srgb, var(--color-warning) 85%, black); }
+.kds-action--info { background: var(--color-info); }
+.kds-action--info:hover:not(:disabled) { background: color-mix(in srgb, var(--color-info) 85%, black); }
+.kds-action--success { background: var(--color-success); }
+.kds-action--success:hover:not(:disabled) { background: color-mix(in srgb, var(--color-success) 85%, black); }
 .kds-card__head {
   display: flex;
   align-items: baseline;
@@ -2337,6 +2429,25 @@
   background: var(--color-warning-bg);
   padding: 2px 6px;
   border-radius: var(--radius-full);
+}
+
+.product-option-editor-group__empty {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--color-warning);
+  background: var(--color-warning-bg);
+  padding: 2px 6px;
+  border-radius: var(--radius-full);
+}
+
+.product-options-editor__number {
+  width: 110px;
+}
+
+.product-options-editor__empty-hint {
+  font-size: 12px;
+  color: var(--color-warning);
+  margin: 0 0 10px;
 }
 
 .product-option-editor-group__body {

@@ -522,7 +522,7 @@ export function deleteProduct(id) {
 
 // --- Produk Opsi / Varian ---
 export function getProductOptionGroups(productId) {
-  return request(`/products/${productId}/options`)
+  return request(`/products/${productId}/options`, { auth: true })
 }
 
 export function createProductOptionGroup(productId, data) {
@@ -560,7 +560,7 @@ export function deleteProductOptionGroup(productId, groupId) {
 }
 
 export function getProductOptions(productId, groupId) {
-  return request(`/products/${productId}/options/${groupId}/options`)
+  return request(`/products/${productId}/options/${groupId}/options`, { auth: true })
 }
 
 export function createProductOption(productId, groupId, data) {

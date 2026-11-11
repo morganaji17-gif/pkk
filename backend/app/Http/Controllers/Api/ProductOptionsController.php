@@ -7,6 +7,7 @@ use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\ProductOptionGroup;
 use App\Models\ProductOption;
+use App\Services\Realtime;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -23,6 +24,7 @@ class ProductOptionsController extends Controller
         $groups = $product
             ->optionGroups()
             ->with('options')
+            ->orderBy('sort_order')
             ->orderBy('name')
             ->get();
 
@@ -33,42 +35,77 @@ class ProductOptionsController extends Controller
     }
 
     /**
+     * Detail satu grup opsi beserta opsinya (admin).
+     */
+    public function show(Product $product, ProductOptionGroup $group)
+    {
+        if ($group->product_id !== $product->id) {
+            return response()->json(['message' => 'Grup opsi tidak milik produk ini.'], 403);
+        }
+
+        $group->load('options');
+
+        return response()->json([
+            'message' => 'Product option group retrieved successfully',
+            'data' => $group,
+        ]);
+    }
+
+    /**
      * Buat grup opsi baru untuk produk.
      */
     public function store(Request $request, Product $product)
     {
         $data = $request->validate([
-            'name' => 'required|string|max:100',
+            'name' => [
+                'required',
+                'string',
+                'max:100',
+                Rule::unique('product_option_groups', 'name')
+                    ->where(fn ($query) => $query->where('product_id', $product->id)),
+            ],
             'selection_type' => ['required', Rule::in(['single', 'multiple'])],
             'required' => 'nullable|boolean',
             'min_selections' => 'nullable|integer|min:0|max:99',
             'max_selections' => 'nullable|integer|min:0|max:99',
             'sort_order' => 'nullable|integer|min:0',
+        ], [
+            'name.unique' => 'Nama grup opsi sudah dipakai produk ini.',
         ]);
 
-        if (!isset($data['required'])) {
-            $data['required'] = false;
-        }
-        if (!isset($data['min_selections'])) {
-            $data['min_selections'] = $data['selection_type'] === 'single' ? 1 : 0;
-        }
-        if (!isset($data['max_selections'])) {
-            $data['max_selections'] = $data['selection_type'] === 'single' ? 1 : null;
-        }
-        if (!isset($data['sort_order'])) {
-            $data['sort_order'] = $product->optionGroups()->max('sort_order') + 1 ?? 0;
+        $required = (bool) ($data['required'] ?? false);
+        $selectionType = $data['selection_type'];
+
+        if ($selectionType === 'single') {
+            $min = $required ? 1 : 0;
+            $max = 1;
+        } else {
+            $min = (int) ($data['min_selections'] ?? 0);
+            if ($required) {
+                $min = max(1, $min);
+            }
+            $max = array_key_exists('max_selections', $data) && $data['max_selections'] !== null
+                ? (int) $data['max_selections']
+                : null;
         }
 
-        // Konsistensi: grup wajib minimal harus memilih 1 opsi.
-        if (($data['required'] ?? false) && (int) ($data['min_selections'] ?? 1) < 1) {
+        if ($max !== null && $min > $max) {
             return response()->json([
-                'message' => 'Grup opsi wajib harus memiliki minimal 1 pilihan.',
-                'errors' => ['min_selections' => ['Grup opsi wajib harus memiliki minimal 1 pilihan.']],
+                'message' => 'Minimal pilihan tidak boleh melebihi maksimal pilihan.',
+                'errors' => ['min_selections' => ['Minimal pilihan tidak boleh melebihi maksimal pilihan.']],
             ], 422);
         }
 
+        $data['required'] = $required;
+        $data['min_selections'] = $min;
+        $data['max_selections'] = $max;
+        $data['sort_order'] = $data['sort_order']
+            ?? (((int) $product->optionGroups()->max('sort_order')) + 1);
+
         $group = $product->optionGroups()->create($data);
         $group->load('options');
+
+        $this->announce($product);
 
         return response()->json([
             'message' => 'Product option group created successfully',
@@ -86,27 +123,46 @@ class ProductOptionsController extends Controller
         }
 
         $data = $request->validate([
-            'name' => 'sometimes|string|max:100',
+            'name' => [
+                'sometimes',
+                'string',
+                'max:100',
+                Rule::unique('product_option_groups', 'name')
+                    ->where(fn ($query) => $query->where('product_id', $product->id))
+                    ->ignore($group->id),
+            ],
             'selection_type' => ['sometimes', Rule::in(['single', 'multiple'])],
             'required' => 'sometimes|boolean',
             'min_selections' => 'sometimes|integer|min:0|max:99',
             'max_selections' => 'sometimes|integer|min:0|max:99|nullable',
             'sort_order' => 'sometimes|integer|min:0',
+        ], [
+            'name.unique' => 'Nama grup opsi sudah dipakai produk ini.',
         ]);
 
-        // Konsistensi: grup wajib minimal harus memilih 1 opsi.
-        if (($data['required'] ?? $group->required) && (int) ($data['min_selections'] ?? $group->min_selections ?? 1) < 1) {
-            return response()->json([
-                'message' => 'Grup opsi wajib harus memiliki minimal 1 pilihan.',
-                'errors' => ['min_selections' => ['Grup opsi wajib harus memiliki minimal 1 pilihan.']],
-            ], 422);
+        $selectionType = $data['selection_type'] ?? $group->selection_type;
+        $required = array_key_exists('required', $data)
+            ? (bool) $data['required']
+            : (bool) $group->required;
+
+        $min = array_key_exists('min_selections', $data)
+            ? (int) $data['min_selections']
+            : (int) ($group->min_selections ?? 0);
+
+        $max = array_key_exists('max_selections', $data)
+            ? ($data['max_selections'] === null ? null : (int) $data['max_selections'])
+            : ($group->max_selections === null ? null : (int) $group->max_selections);
+
+        if ($selectionType === 'single') {
+            $min = $required ? 1 : 0;
+            $max = 1;
+        } else {
+            $min = max(0, $min);
+            if ($required) {
+                $min = max(1, $min);
+            }
         }
 
-        // min_selections tidak boleh melebihi max_selections
-        $min = (int) ($data['min_selections'] ?? $group->min_selections ?? 0);
-        $max = array_key_exists('max_selections', $data)
-            ? ($data['max_selections'] === null ? PHP_INT_MAX : (int) $data['max_selections'])
-            : ($group->max_selections ?? null);
         if ($max !== null && $min > $max) {
             return response()->json([
                 'message' => 'Minimal pilihan tidak boleh melebihi maksimal pilihan.',
@@ -114,8 +170,23 @@ class ProductOptionsController extends Controller
             ], 422);
         }
 
+        // Grup wajib tanpa opsi membuat produk tidak bisa dipesan.
+        if ($required && $group->options()->count() === 0) {
+            return response()->json([
+                'message' => 'Grup wajib harus memiliki minimal satu opsi. Tambahkan opsi terlebih dahulu.',
+                'errors' => ['required' => ['Grup wajib harus memiliki minimal satu opsi.']],
+            ], 422);
+        }
+
+        $data['required'] = $required;
+        $data['selection_type'] = $selectionType;
+        $data['min_selections'] = $min;
+        $data['max_selections'] = $max;
+
         $group->update($data);
         $group->load('options');
+
+        $this->announce($product);
 
         return response()->json([
             'message' => 'Product option group updated successfully',
@@ -142,6 +213,8 @@ class ProductOptionsController extends Controller
         // Hapus semua option dulu, baru grup
         $group->options()->delete();
         $group->delete();
+
+        $this->announce($product);
 
         return response()->json([
             'message' => 'Product option group deleted successfully',
@@ -188,6 +261,8 @@ class ProductOptionsController extends Controller
 
         $option = $group->options()->create($data);
 
+        $this->announce($product);
+
         return response()->json([
             'message' => 'Product option created successfully',
             'data' => $option,
@@ -211,6 +286,8 @@ class ProductOptionsController extends Controller
 
         $option->update($data);
 
+        $this->announce($product);
+
         return response()->json([
             'message' => 'Product option updated successfully',
             'data' => $option,
@@ -218,23 +295,28 @@ class ProductOptionsController extends Controller
     }
 
     /**
-     * Cek apakah satu opsi/group dipakai di order items (cek JSON secara in-app,
-     * tidak rely pada JSON_CONTAINS agar tidak terpengaruh tipe integer/float).
+     * Cek apakah satu opsi/group dipakai di order items.
+     * Query langsung di DB via JSON_CONTAINS (kolom selected_options bertipe JSON),
+     * bukan load semua order item ke memory.
+     * CATATAN: pengujian manual menunjukkan MySQL JSON_CONTAINS cocok hanya
+     * untuk tipe sama (int vs string). Data snapshot dari CheckoutService
+     * selalu menulis integer, jadi aman.
+     * CATATAN-2: SQLite tidak punya JSON_CONTAINS — fallback ke in-memory
+     * untuk lingkungan test.
      */
     private function optionInUse(int $optionId): bool
     {
+        $driver = DB::connection()->getDriverName();
+
+        if ($driver === 'sqlite') {
+            return OrderItem::query()
+                ->get()
+                ->contains(fn (OrderItem $item) => $this->optionMatchesId($item, $optionId));
+        }
+
         return OrderItem::query()
-            ->get()
-            ->contains(function (OrderItem $item) use ($optionId) {
-                $opts = $item->selected_options;
-                if (!is_array($opts)) return false;
-                foreach ($opts as $opt) {
-                    if (isset($opt['option_id']) && (int) $opt['option_id'] === $optionId) {
-                        return true;
-                    }
-                }
-                return false;
-            });
+            ->whereRaw('JSON_CONTAINS(selected_options, ?)', ['{"option_id": ' . $optionId . '}'])
+            ->exists();
     }
 
     /**
@@ -242,18 +324,41 @@ class ProductOptionsController extends Controller
      */
     private function groupInUse(int $groupId): bool
     {
+        $driver = DB::connection()->getDriverName();
+
+        if ($driver === 'sqlite') {
+            return OrderItem::query()
+                ->get()
+                ->contains(fn (OrderItem $item) => $this->groupMatchesId($item, $groupId));
+        }
+
         return OrderItem::query()
-            ->get()
-            ->contains(function (OrderItem $item) use ($groupId) {
-                $opts = $item->selected_options;
-                if (!is_array($opts)) return false;
-                foreach ($opts as $opt) {
-                    if (isset($opt['option_group_id']) && (int) $opt['option_group_id'] === $groupId) {
-                        return true;
-                    }
-                }
-                return false;
-            });
+            ->whereRaw('JSON_CONTAINS(selected_options, ?)', ['{"option_group_id": ' . $groupId . '}'])
+            ->exists();
+    }
+
+    private function optionMatchesId(OrderItem $item, int $optionId): bool
+    {
+        $opts = $item->selected_options;
+        if (!is_array($opts)) return false;
+        foreach ($opts as $opt) {
+            if (isset($opt['option_id']) && (int) $opt['option_id'] === $optionId) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private function groupMatchesId(OrderItem $item, int $groupId): bool
+    {
+        $opts = $item->selected_options;
+        if (!is_array($opts)) return false;
+        foreach ($opts as $opt) {
+            if (isset($opt['option_group_id']) && (int) $opt['option_group_id'] === $groupId) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -273,8 +378,21 @@ class ProductOptionsController extends Controller
 
         $option->delete();
 
+        $this->announce($product);
+
         return response()->json([
             'message' => 'Product option deleted successfully',
+        ]);
+    }
+
+    /**
+     * Beri tahu client lain (kasir, customer, KDS) bahwa opsi produk berubah.
+     */
+    private function announce(Product $product): void
+    {
+        Realtime::push('products', [
+            'type' => 'product.options.changed',
+            'product_id' => $product->id,
         ]);
     }
 }

@@ -59,9 +59,11 @@ class SalesReportService
             'from' => $range['from'],
             'to' => $range['to'],
             'label' => $this->periodLabel($period, $range['from'], $range['to']),
+            // Konsisten dengan summary()/topProducts(): pesanan batal tidak masuk laporan.
             'orders' => Order::with('table')
                 ->where('created_at', '>=', $range['from']->copy()->setTimezone('UTC'))
                 ->where('created_at', '<', $range['to']->copy()->setTimezone('UTC'))
+                ->where('status', '!=', 'cancelled')
                 ->orderBy('created_at')
                 ->get(),
         ];
@@ -246,19 +248,26 @@ class SalesReportService
         $fromUTC = $from->copy()->setTimezone('UTC');
         $toUTC = $from->copy()->addDay()->setTimezone('UTC');
 
-        $rows = Order::where('created_at', '>=', $fromUTC)
+        // Hitung per jam langsung di DB — tidak load row ke PHP memory.
+        // HOUR() dievaluasi dalam UTC, lalu dikonversi ke Asia/Jakarta (UTC+7) di PHP
+        // agar tidak bergantung pada timezone tables MySQL (CONVERT_TZ).
+        $rows = Order::query()
+            ->where('created_at', '>=', $fromUTC)
             ->where('created_at', '<', $toUTC)
             ->where('payment_status', 'paid')
             ->where('status', '!=', 'cancelled')
-            ->get(['created_at', 'total_price']);
+            ->selectRaw('HOUR(created_at) as utc_hour')
+            ->selectRaw('SUM(total_price) as revenue')
+            ->groupByRaw('utc_hour')
+            ->get();
 
         $buckets = array_fill(0, 24, 0.0);
-        foreach ($rows as $order) {
-            $h = Carbon::parse($order->created_at)->setTimezone($tz)->hour;
-            $buckets[$h] += (float) $order->total_price;
+        foreach ($rows as $row) {
+            $localHour = (((int) $row->utc_hour + 7) % 24); // UTC → WIB
+            $buckets[$localHour] = round((float) $row->revenue, 2);
         }
 
-        return array_map(fn ($v) => round($v, 2), $buckets);
+        return $buckets;
     }
 
     public function paymentSplit(Carbon $from, Carbon $to): array

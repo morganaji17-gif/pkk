@@ -1,6 +1,6 @@
 import { formatRupiah, resolveImageUrl } from '../utils/format'
 
-export default function ProductCard({ product, quantityInCart, onSelect, onAdd }) {
+export default function ProductCard({ product, quantityInCart, onSelect }) {
   const imageUrl = resolveImageUrl(product.image)
   const soldOut = product.stock <= 0
   const stockStatus = product.stock_status || (soldOut ? 'out' : 'normal')

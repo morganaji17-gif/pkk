@@ -213,7 +213,6 @@ function App() {
           table={table}
           cartItems={cart.items}
           onSelectProduct={(product) => setDetailProductId(product.id)}
-          onAddProduct={handleAddProduct}
           onProductsLoaded={setMenuProducts}
         />
         <CartBar

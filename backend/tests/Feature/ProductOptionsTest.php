@@ -577,4 +577,207 @@ class ProductOptionsTest extends TestCase
         $this->assertEquals(65000, $item['subtotal']);
         $this->assertEquals(5, $item['quantity']);
     }
+
+    /** Opsi default hanya dibuat sekali saat produk baru; hapus/rename tidak dibangkitkan lagi. */
+    public function test_option_defaults_are_not_reapplied_after_admin_edits()
+    {
+        $admin = $this->admin();
+        $token = $admin->createToken('t')->plainTextToken;
+        $cat = Category::create(['name' => 'Makanan', 'is_active' => true]);
+
+        $res = $this->postJson('/api/products', [
+            'category_id' => $cat->id,
+            'name' => 'Nasi Test',
+            'price' => 10000,
+            'stock' => 5,
+            'is_active' => true,
+        ], ['Authorization' => "Bearer $token"])->assertStatus(201);
+
+        $productId = $res->json('data.id');
+        $product = Product::findOrFail($productId);
+        $group = $product->optionGroups()->where('name', 'Level Kepedasan')->first();
+        $this->assertNotNull($group, 'Produk makanan baru harus mendapat opsi default.');
+
+        // Admin menghapus grup default.
+        $this->deleteJson("/api/products/{$productId}/options/{$group->id}", [], ['Authorization' => "Bearer $token"])
+            ->assertStatus(200);
+
+        // Membuka detail produk tidak boleh membangkitkan grup default lagi.
+        $this->getJson("/api/products/{$productId}")->assertStatus(200);
+        $this->assertDatabaseMissing('product_option_groups', [
+            'product_id' => $productId,
+            'name' => 'Level Kepedasan',
+        ]);
+
+        // Edit produk (harga/stok) juga tidak boleh membangkitkannya.
+        $this->putJson("/api/products/{$productId}", [
+            'category_id' => $cat->id,
+            'name' => 'Nasi Test Updated',
+            'price' => 12000,
+            'stock' => 6,
+            'is_active' => true,
+        ], ['Authorization' => "Bearer $token"])->assertStatus(200);
+
+        $this->assertDatabaseMissing('product_option_groups', [
+            'product_id' => $productId,
+            'name' => 'Level Kepedasan',
+        ]);
+    }
+
+    /** Rename grup default tidak boleh memunculkan grup lama sebagai duplikat. */
+    public function test_renaming_default_group_does_not_recreate_the_original()
+    {
+        $admin = $this->admin();
+        $token = $admin->createToken('t')->plainTextToken;
+        $cat = Category::create(['name' => 'Minuman', 'is_active' => true]);
+
+        $res = $this->postJson('/api/products', [
+            'category_id' => $cat->id,
+            'name' => 'Es Test',
+            'price' => 5000,
+            'stock' => 5,
+            'is_active' => true,
+        ], ['Authorization' => "Bearer $token"])->assertStatus(201);
+
+        $productId = $res->json('data.id');
+        $product = Product::findOrFail($productId);
+        $group = $product->optionGroups()->where('name', 'Ice / No Ice')->firstOrFail();
+
+        $this->patchJson("/api/products/{$productId}/options/{$group->id}", [
+            'name' => 'Suhu Minuman',
+        ], ['Authorization' => "Bearer $token"])->assertStatus(200);
+
+        $this->getJson("/api/products/{$productId}")->assertStatus(200);
+
+        $this->assertDatabaseHas('product_option_groups', [
+            'product_id' => $productId,
+            'name' => 'Suhu Minuman',
+        ]);
+        $this->assertDatabaseMissing('product_option_groups', [
+            'product_id' => $productId,
+            'name' => 'Ice / No Ice',
+        ]);
+    }
+
+    /** Grup wajib tanpa opsi tidak boleh mengunci checkout. */
+    public function test_required_group_without_options_is_ignored_at_checkout()
+    {
+        $customer = $this->customer();
+        $token = $customer->createToken('t')->plainTextToken;
+        $cat = Category::create(['name' => 'Cat', 'is_active' => true]);
+        $prod = Product::create([
+            'category_id' => $cat->id,
+            'name' => 'Jus',
+            'price' => 8000,
+            'stock' => 5,
+            'is_active' => true,
+        ]);
+        $prod->optionGroups()->create([
+            'name' => 'Low Es',
+            'selection_type' => 'single',
+            'required' => true,
+            'min_selections' => 1,
+            'max_selections' => 1,
+        ]);
+        $table = RestaurantTable::create([
+            'table_number' => '1',
+            'capacity' => 4,
+            'status' => 'available',
+            'is_available' => true,
+        ]);
+
+        $this->postJson('/api/checkout', [
+            'restaurant_table_id' => $table->id,
+            'customer_name' => 'Test',
+            'payment_method' => 'cash',
+            'items' => [['product_id' => $prod->id, 'quantity' => 1]],
+        ], ['Authorization' => "Bearer $token"])->assertStatus(201);
+    }
+
+    /** Grup kosong tidak boleh ditandai wajib karena tidak akan bisa dipilih. */
+    public function test_admin_cannot_mark_empty_group_as_required()
+    {
+        $admin = $this->admin();
+        $token = $admin->createToken('t')->plainTextToken;
+        $cat = Category::create(['name' => 'Cat', 'is_active' => true]);
+        $prod = Product::create([
+            'category_id' => $cat->id,
+            'name' => 'Produk',
+            'price' => 10000,
+            'stock' => 5,
+            'is_active' => true,
+        ]);
+        $group = $prod->optionGroups()->create([
+            'name' => 'Ukuran',
+            'selection_type' => 'single',
+            'required' => false,
+            'min_selections' => 0,
+            'max_selections' => 1,
+        ]);
+
+        $this->patchJson("/api/products/{$prod->id}/options/{$group->id}", [
+            'required' => true,
+        ], ['Authorization' => "Bearer $token"])->assertStatus(422);
+    }
+
+    /** Nama grup opsi tidak boleh duplikat dalam satu produk. */
+    public function test_group_name_must_be_unique_per_product()
+    {
+        $admin = $this->admin();
+        $token = $admin->createToken('t')->plainTextToken;
+        $cat = Category::create(['name' => 'Cat', 'is_active' => true]);
+        $prod = Product::create([
+            'category_id' => $cat->id,
+            'name' => 'Produk',
+            'price' => 10000,
+            'stock' => 5,
+            'is_active' => true,
+        ]);
+        $prod->optionGroups()->create([
+            'name' => 'Ukuran',
+            'selection_type' => 'single',
+            'required' => false,
+        ]);
+
+        $this->postJson("/api/products/{$prod->id}/options", [
+            'name' => 'Ukuran',
+            'selection_type' => 'single',
+        ], ['Authorization' => "Bearer $token"])->assertStatus(422);
+    }
+
+    /** Endpoint baca opsi wajib memakai token admin (dipakai panel Kelola Opsi). */
+    public function test_admin_can_read_option_groups_and_options()
+    {
+        $admin = $this->admin();
+        $token = $admin->createToken('t')->plainTextToken;
+        $cat = Category::create(['name' => 'Cat', 'is_active' => true]);
+        $prod = Product::create([
+            'category_id' => $cat->id,
+            'name' => 'Produk',
+            'price' => 10000,
+            'stock' => 5,
+            'is_active' => true,
+        ]);
+        $group = $prod->optionGroups()->create([
+            'name' => 'Ukuran',
+            'selection_type' => 'single',
+            'required' => false,
+        ]);
+        $group->options()->create(['label' => 'Besar', 'additional_price' => 2000]);
+
+        // Tanpa token harus ditolak.
+        $this->getJson("/api/products/{$prod->id}/options")->assertStatus(401);
+
+        $list = $this->getJson("/api/products/{$prod->id}/options", [
+            'Authorization' => "Bearer $token",
+        ])->assertStatus(200);
+
+        $this->assertEquals('Ukuran', $list->json('data.0.name'));
+        $this->assertCount(1, $list->json('data.0.options'));
+
+        $this->getJson("/api/products/{$prod->id}/options/{$group->id}", [
+            'Authorization' => "Bearer $token",
+        ])->assertStatus(200)
+            ->assertJsonPath('data.name', 'Ukuran');
+    }
 }

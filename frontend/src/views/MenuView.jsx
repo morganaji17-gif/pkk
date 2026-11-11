@@ -13,7 +13,6 @@ export default function MenuView({
   table,
   cartItems,
   onSelectProduct,
-  onAddProduct,
   onProductsLoaded,
 }) {
   const initialCatCache = peekCategoriesCache({ per_page: 50 })
@@ -126,7 +125,6 @@ export default function MenuView({
                     product={product}
                     quantityInCart={cartByProductId[product.id] || 0}
                     onSelect={onSelectProduct}
-                    onAdd={onAddProduct}
                   />
                 </motion.li>
               ))}

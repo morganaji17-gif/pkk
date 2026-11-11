@@ -182,11 +182,23 @@ class CheckoutService
             ->get()
             ->keyBy->id;
 
+        // Grup tanpa opsi tidak mungkin dipilih. Abaikan grup seperti ini
+        // supaya produk tidak terkunci gara-gara grup kosong yang (mungkin
+        // tidak sengaja) ditandai wajib.
+        $groupsWithOptions = $product->optionGroups()
+            ->whereHas('options')
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
         // Jika tidak ada selected_options, cek apakah ada grup wajib yang kosong
         if (empty($selectedOptions) || !is_array($selectedOptions)) {
             foreach ($groupDetails as $groupId => $group) {
-                if ($group->required && isset($groupIdMap[$groupId])) {
-                    $min = $group->min_selections ?? 1;
+                if (!$group->required || !in_array((int) $groupId, $groupsWithOptions, true)) {
+                    continue;
+                }
+                if (isset($groupIdMap[$groupId])) {
+                    $min = max(1, (int) ($group->min_selections ?? 1));
                     throw new \InvalidArgumentException(
                         "Pilih minimal {$min} opsi untuk '{$group->name}'."
                     );
@@ -257,14 +269,21 @@ class CheckoutService
             ];
         }
 
-        // Validasi required groups
+        // Validasi min/max. Grup tanpa opsi dilewati (tidak bisa dipilih).
         foreach ($groupDetails as $groupId => $group) {
-            if (!$group->required) {
+            $groupId = (int) $groupId;
+            if (!in_array($groupId, $groupsWithOptions, true)) {
                 continue;
             }
+
             $count = $countPerGroup[$groupId] ?? 0;
-            $min = (int) ($group->min_selections ?? 1);
-            $max = (int) ($group->max_selections ?? ($group->selection_type === 'single' ? 1 : PHP_INT_MAX));
+            $min = $group->required
+                ? max(1, (int) ($group->min_selections ?? 1))
+                : max(0, (int) ($group->min_selections ?? 0));
+            $max = $group->max_selections !== null
+                ? (int) $group->max_selections
+                : ($group->selection_type === 'single' ? 1 : PHP_INT_MAX);
+
             if ($count < $min) {
                 throw new \InvalidArgumentException(
                     "Pilih minimal {$min} opsi untuk '{$group->name}'."

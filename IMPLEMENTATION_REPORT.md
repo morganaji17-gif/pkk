@@ -156,7 +156,7 @@
    - Edit/hapus grup
    - Tambah opsi di dalam grup (label, harga tambahan)
    - Edit/hapus opsi
-5. Untuk mengatur default semua produk baru: klik tombol **"Opsi Default"** di kanan atas halaman produk
+5. Opsi default otomatis diberikan sekali saat produk baru dibuat (sesuai kategori). Setelah itu admin bebas menghapus atau mengubahnya lewat Kelola Opsi; sistem tidak akan mengembalikannya.
 
 ## 7. Cara Pelanggan Memilih dan Mengedit Opsi
 
@@ -210,7 +210,7 @@ Test coverage:
 
 1. **Opsi default untuk semua produk**: Saya buat menggunakan seeder yang menjalankan `ProductOptionDefaults::apply()` untuk setiap produk yang ada. Produk baru juga otomatis mendapat opsi ini saat dibuat.
 
-2. **Konfigurasi global vs per-produk**: Opsi default disimpan di localStorage browser (bukan database) agar admin bisa mengubahnya tanpa deploy ulang. Namun untuk konsistensi, ada juga seeder yang bisa dijalankan ulang.
+2. **Konfigurasi global vs per-produk**: Template default berada di `ProductOptionDefaults` (kode) dan hanya dipakai saat produk baru dibuat atau saat seeder dijalankan manual. Seeder bersifat non-destruktif: produk yang sudah punya grup opsi tidak diubah. Sumber kebenaran tetap data per-produk di tabel `product_option_groups` / `product_options`.
 
 3. **Validasi required di backend**: Sebelumnya validasi hanya mengecek keberadaan opsi, sekarang juga mengecek apakah semua required group sudah dipilih sesuai min/max.
 

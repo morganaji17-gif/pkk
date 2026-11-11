@@ -13,8 +13,12 @@ export default function ProductDetailSheet({ open, productId, menuProducts = [],
   const [quantity, setQuantity] = useState(1)
   const [selectedOptions, setSelectedOptions] = useState([])
   const [reloadKey, setReloadKey] = useState(0)
+  const [imageFailed, setImageFailed] = useState(false)
 
   // Temukan produk secara sinkron dari menu / cache agar sheet tampil instan.
+  // Nilai sengaja TIDAK masuk deps useEffect: objek cache selalu referensi baru
+  // (normalizeProduct), sehingga deps tersebut akan memicu loop tak berujung.
+  // Komponen di-remount via key saat productId berubah, jadi efek tetap berjalan.
   const resolvedProduct = (() => {
     if (!open || !productId) return null
     const fromMenu = Array.isArray(menuProducts)
@@ -28,6 +32,7 @@ export default function ProductDetailSheet({ open, productId, menuProducts = [],
     setError(null)
     setSelectedOptions([])
     setQuantity(1)
+    setImageFailed(false)
 
     if (resolvedProduct) {
       setProduct(resolvedProduct)
@@ -45,7 +50,9 @@ export default function ProductDetailSheet({ open, productId, menuProducts = [],
     getProduct(productId)
       .then((data) => setProduct(data))
       .catch((err) => setError(err.message))
-  }, [open, productId, reloadKey, resolvedProduct])
+    // resolvedProduct sengaja tidak masuk deps: objek cache selalu referensi baru
+    // (normalizeProduct), dan komponen sudah di-remount via key saat produk ganti.
+  }, [open, productId, reloadKey])
 
   useEffect(() => {
     if (!open) return
@@ -142,9 +149,13 @@ export default function ProductDetailSheet({ open, productId, menuProducts = [],
     for (const group of optionGroups) {
       const count = selectedOptions.filter((o) => Number(o.option_group_id) === Number(group.id)).length
       const min = group.required
-        ? (group.selection_type === 'single' ? 1 : (Number(group.min_selections) || 1))
-        : Number(group.min_selections ?? (group.selection_type === 'single' ? 1 : 0))
-      const max = group.selection_type === 'single' ? 1 : (Number(group.max_selections) || 99)
+        ? Math.max(1, Number(group.min_selections) || 0)
+        : Math.max(0, Number(group.min_selections) || 0)
+      const max = group.selection_type === 'single'
+        ? 1
+        : (group.max_selections === null || group.max_selections === undefined
+            ? 99
+            : Number(group.max_selections))
 
       if (count < min) {
         return { valid: false, message: `Pilih minimal ${min} opsi untuk "${group.name}".` }
@@ -161,8 +172,8 @@ export default function ProductDetailSheet({ open, productId, menuProducts = [],
     for (const group of optionGroups) {
       const count = selectedOptions.filter((o) => Number(o.option_group_id) === Number(group.id)).length
       const min = group.required
-        ? (group.selection_type === 'single' ? 1 : (Number(group.min_selections) || 1))
-        : Number(group.min_selections ?? (group.selection_type === 'single' ? 1 : 0))
+        ? Math.max(1, Number(group.min_selections) || 0)
+        : Math.max(0, Number(group.min_selections) || 0)
       if (count < min) return false
     }
     return true
@@ -183,12 +194,18 @@ export default function ProductDetailSheet({ open, productId, menuProducts = [],
         {product && !error && (
           <>
             <div className="detail-sheet__media">
-              {resolveImageUrl(product.image) ? (
-                <img src={resolveImageUrl(product.image)} alt={product.name} />
+              {resolveImageUrl(product.image) && !imageFailed ? (
+                <img
+                  src={resolveImageUrl(product.image)}
+                  alt={product.name}
+                  onError={() => setImageFailed(true)}
+                />
               ) : (
                 <div className="detail-sheet__placeholder" aria-hidden="true">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="40" height="40">
-                    <path d="M3 11l19-9-9 19-2-8-8-2z" />
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                    <circle cx="8.5" cy="8.5" r="1.5" />
+                    <polyline points="21 15 16 10 5 21" />
                   </svg>
                 </div>
               )}

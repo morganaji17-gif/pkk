@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/set-state-in-effect -- SWR */
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import {
   getProducts,
   getCategories,
@@ -271,6 +271,9 @@ export default function ProductsPage() {
   useStaffRealtime({
     onEvent: (event) => {
       if (event?.channel === 'products') {
+        // Jangan reload tabel saat panel Kelola Opsi sedang terbuka:
+        // reload akan me-unmount editor dan menghilangkan progres admin.
+        if (expandedProductId) return
         clearCacheFor('/products')
         retry()
       }
@@ -386,8 +389,8 @@ export default function ProductsPage() {
               </thead>
             <tbody>
               {products.map((product) => (
-                <>
-                <tr key={product.id}>
+                <Fragment key={product.id}>
+                <tr>
                   <td data-label="Produk">
                     <div className="staff-product-cell">
                       {product.image ? (
@@ -454,7 +457,7 @@ export default function ProductsPage() {
                     </td>
                   </tr>
                 )}
-                </>
+                </Fragment>
               ))}
             </tbody>
           </table>

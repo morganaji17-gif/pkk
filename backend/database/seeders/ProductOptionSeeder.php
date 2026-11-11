@@ -7,35 +7,24 @@ use App\Services\ProductOptionDefaults;
 use Illuminate\Database\Seeder;
 
 /**
- * Opsi/varian default untuk semua produk.
- * Idempoten: aman dijalankan berulang kali.
+ * Opsi/varian default untuk produk yang belum punya opsi.
+ *
+ * Non-destruktif: produk yang sudah memiliki grup opsi (mungkin sudah
+ * diatur admin lewat "Kelola Opsi") dilewati. Aman dijalankan berulang.
  */
 class ProductOptionSeeder extends Seeder
 {
     public function run(): void
     {
-        Product::query()->chunkById(100, function ($products) {
-            foreach ($products as $product) {
-                ProductOptionDefaults::apply($product);
-            }
-        });
-
-        // Pemaksaan required=true/min_selections=1 untuk produk yang sudah ada.
-        // Ini dilakukan di luar chunk agar tidak bentrok dengan relasi loaded di atas.
-        $defaultGroupNames = array_keys(ProductOptionDefaults::GROUPS);
         Product::query()
-            ->with(['optionGroups'])
-            ->chunkById(100, function ($products) use ($defaultGroupNames) {
+            ->with('category')
+            ->chunkById(100, function ($products) {
                 foreach ($products as $product) {
-                    foreach ($product->optionGroups as $group) {
-                        if (in_array($group->name, $defaultGroupNames, true)) {
-                            $group->updateQuietly([
-                                'required' => true,
-                                'min_selections' => 1,
-                                'max_selections' => 1,
-                            ]);
-                        }
+                    if ($product->optionGroups()->exists()) {
+                        continue;
                     }
+
+                    ProductOptionDefaults::apply($product);
                 }
             });
     }

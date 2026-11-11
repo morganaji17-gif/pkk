@@ -28,7 +28,6 @@ class OrderController extends Controller
 
             if ($isNew) {
                 Realtime::push('orders', ['type' => 'order.created', 'order_number' => $order->order_number, 'tracking_token' => $order->tracking_token]);
-                Realtime::push('order:' . $order->order_number, ['type' => 'order.created', 'order_number' => $order->order_number]);
                 if (!empty($order->tracking_token)) {
                     Realtime::push('order:' . $order->tracking_token, ['type' => 'order.created', 'order_number' => $order->order_number]);
                 }
@@ -42,7 +41,6 @@ class OrderController extends Controller
             }
 
             Realtime::push('orders', ['type' => 'order.updated', 'order_number' => $order->order_number, 'tracking_token' => $order->tracking_token]);
-            Realtime::push('order:' . $order->order_number, ['type' => 'order.updated', 'order_number' => $order->order_number]);
             if (!empty($order->tracking_token)) {
                 Realtime::push('order:' . $order->tracking_token, ['type' => 'order.updated', 'order_number' => $order->order_number]);
             }
@@ -67,7 +65,7 @@ class OrderController extends Controller
 
     $orders = Order::with([
         'table',
-        'orderItems.product'
+        'orderItems.product.category',
     ])
         ->when($request->filled('search'), function ($query) use ($request) {
             $search = trim($request->input('search'));
@@ -102,7 +100,7 @@ class OrderController extends Controller
 {
     $order->load([
         'table',
-        'orderItems.product'
+        'orderItems.product.category',
     ]);
 
     return response()->json([
@@ -186,10 +184,6 @@ public function updateStatus(
         'order_number' => $order->order_number,
         'status' => $newStatus,
     ]);
-    Realtime::push('order:' . $order->order_number, [
-        'type' => 'order.status_changed',
-        'status' => $newStatus,
-    ]);
     if (!empty($order->tracking_token)) {
         Realtime::push('order:' . $order->tracking_token, [
             'type' => 'order.status_changed',
@@ -213,7 +207,7 @@ public function updateStatus(
 }
 public function track(string $trackingToken)
 {
-    $order = Order::with('orderItems.product', 'table')
+    $order = Order::with('orderItems.product.category', 'table')
         ->where('tracking_token', $trackingToken)
         ->first();
 
@@ -254,14 +248,11 @@ public function track(string $trackingToken)
         $order->payment_reject_note = $request->input('reject_note');
         $order->save();
 
-        $fresh = $order->fresh(['table', 'orderItems.product']);
+        $fresh = $order->fresh(['table', 'orderItems.product.category']);
 
         Realtime::push('orders', [
             'type' => 'order.payment_rejected',
             'order_number' => $order->order_number,
-        ]);
-        Realtime::push('order:' . $order->order_number, [
-            'type' => 'order.payment_rejected',
         ]);
         if (!empty($order->tracking_token)) {
             Realtime::push('order:' . $order->tracking_token, [
@@ -303,9 +294,6 @@ public function track(string $trackingToken)
     Realtime::push('orders', [
         'type' => 'order.payment_changed',
         'order_number' => $order->order_number,
-    ]);
-    Realtime::push('order:' . $order->order_number, [
-        'type' => 'order.payment_changed',
     ]);
     if (!empty($order->tracking_token)) {
         Realtime::push('order:' . $order->tracking_token, [
@@ -372,9 +360,6 @@ public function track(string $trackingToken)
     Realtime::push('orders', [
         'type' => 'order.proof_uploaded',
         'order_number' => $order->order_number,
-    ]);
-    Realtime::push('order:' . $order->order_number, [
-        'type' => 'order.proof_uploaded',
     ]);
     if (!empty($order->tracking_token)) {
         Realtime::push('order:' . $order->tracking_token, [
