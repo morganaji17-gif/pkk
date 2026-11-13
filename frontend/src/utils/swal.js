@@ -1,7 +1,7 @@
 import Swal from 'sweetalert2'
 
 const swal = Swal.mixin({
-  confirmButtonColor: '#dc2626',
+  confirmButtonColor: '#C75B39',
   cancelButtonColor: '#64748b',
   reverseButtons: true,
   customClass: {
@@ -17,6 +17,28 @@ export async function confirmDelete({ title, text }) {
     showCancelButton: true,
     confirmButtonText: 'Hapus',
     cancelButtonText: 'Batal',
+  })
+
+  return result.isConfirmed
+}
+
+/**
+ * Konfirmasi umum (bukan hapus). Tombol konfirmasi bisa dikustom.
+ */
+export async function confirmAction({
+  title,
+  text,
+  confirmButtonText = 'Lanjutkan',
+  cancelButtonText = 'Batal',
+  icon = 'warning',
+}) {
+  const result = await swal.fire({
+    icon,
+    title,
+    text,
+    showCancelButton: true,
+    confirmButtonText,
+    cancelButtonText,
   })
 
   return result.isConfirmed

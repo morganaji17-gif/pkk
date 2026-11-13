@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { getRestaurantTable, checkout } from './api/client'
+import { getRestaurantTable, getTableByToken, checkout } from './api/client'
 import { ApiError } from './api/client'
 import { useCart } from './hooks/useCart'
 import LoadingState from './components/LoadingState'
@@ -10,16 +10,25 @@ import ProductDetailSheet from './components/ProductDetailSheet'
 import MenuView from './views/MenuView'
 import CheckoutView from './views/CheckoutView'
 import OrderTrackingView from './views/OrderTrackingView'
-import { toastSuccess } from './utils/swal'
+import { toastSuccess, toastError } from './utils/swal'
 
 const ORDER_STORAGE_KEY = 'pesanin_tracking_token'
 
-function getTableIdFromUrl() {
+/**
+ * Tautan meja bisa berupa:
+ * - `?t=<public_token>` (format baru, tidak bisa ditebak)
+ * - `?table=<id>` (format lama, tetap didukung)
+ */
+function getTableTargetFromUrl() {
   const params = new URLSearchParams(window.location.search)
+  const token = params.get('t')
+  if (token) return { token, id: null }
+
   const raw = params.get('table')
-  if (!raw) return null
+  if (!raw) return { token: null, id: null }
+
   const id = Number(raw)
-  return Number.isInteger(id) && id > 0 ? id : null
+  return { token: null, id: Number.isInteger(id) && id > 0 ? id : null }
 }
 
 function readStoredTrackingToken() {
@@ -31,13 +40,16 @@ function readStoredTrackingToken() {
 }
 
 function App() {
-  const tableId = getTableIdFromUrl()
+  const tableTarget = getTableTargetFromUrl()
+  const tableId = tableTarget.id
 
   const [table, setTable] = useState(null)
   const [tableError, setTableError] = useState(() =>
-    tableId ? null : 'Tautan meja tidak valid.'
+    tableTarget.token || tableId ? null : 'Tautan meja tidak valid.'
   )
   const [tableRetry, setTableRetry] = useState(0)
+  // Token checkout jangka pendek dari backend (menggantikan kiriman ID mentah).
+  const [checkoutToken, setCheckoutToken] = useState(null)
 
   const [trackingToken, setTrackingToken] = useState(() => readStoredTrackingToken())
   const [orderMeta, setOrderMeta] = useState(null)
@@ -53,15 +65,23 @@ function App() {
 
   const cart = useCart()
 
-  const tableLoading = tableId !== null && !table && !tableError
+  const hasTableTarget = Boolean(tableTarget.token || tableId)
+  const tableLoading = hasTableTarget && !table && !tableError
+  // ID final: dari meja yang sudah ter-resolve (token) atau dari URL legacy.
+  const resolvedTableId = table?.id ?? tableId
 
   useEffect(() => {
-    if (!tableId) return
+    if (!hasTableTarget) return
     let cancelled = false
     const load = async () => {
       try {
-        const data = await getRestaurantTable(tableId)
-        if (!cancelled) setTable(data)
+        const data = tableTarget.token
+          ? await getTableByToken(tableTarget.token)
+          : await getRestaurantTable(tableId)
+        if (!cancelled) {
+          setTable(data)
+          setCheckoutToken(data?.checkout_token || null)
+        }
       } catch (err) {
         if (!cancelled) setTableError(err.message)
       }
@@ -70,7 +90,8 @@ function App() {
     return () => {
       cancelled = true
     }
-  }, [tableId, tableRetry])
+  }, [hasTableTarget, tableTarget.token, tableId, tableRetry])
+
 
   const retryTable = () => {
     setTable(null)
@@ -78,12 +99,53 @@ function App() {
     setTableRetry((n) => n + 1)
   }
 
+  // Meja ditutup (maintenance / tidak tersedia) → pelanggan tidak boleh memesan.
+  const orderingClosed = Boolean(table) &&
+    (table.effective_status === 'maintenance' || table.is_available === false)
+
+  /**
+   * Ambil status meja terbaru dari server (dipakai sebelum checkout).
+   * Mengembalikan data meja segar atau null kalau gagal.
+   */
+  const fetchFreshTable = async () => {
+    try {
+      return tableTarget.token
+        ? await getTableByToken(tableTarget.token)
+        : await getRestaurantTable(tableId)
+    } catch {
+      return null
+    }
+  }
+
+  /**
+   * Cek ulang status meja tanpa reload halaman. Dipakai tombol "Cek lagi"
+   * saat meja berstatus maintenance, dan sebelum checkout.
+   */
+  const refreshTable = async () => {
+    const fresh = await fetchFreshTable()
+    if (!fresh) {
+      toastError('Gagal memeriksa status meja. Coba lagi.')
+      return
+    }
+    setTable(fresh)
+    setCheckoutToken(fresh.checkout_token || null)
+    if (fresh.effective_status === 'maintenance' || fresh.is_available === false) {
+      toastError('Meja ini masih tidak menerima pesanan.')
+    } else {
+      toastSuccess('Meja sudah menerima pesanan lagi.')
+    }
+  }
+
   const handleAddProduct = (product, quantity = 1, selectedOptions = []) => {
+    if (orderingClosed) {
+      toastError('Meja ini sedang tidak menerima pesanan.')
+      return
+    }
     cart.addToCart(product, quantity, selectedOptions)
   }
 
   const handleSubmitOrder = async (customerName, paymentMethod = 'cash', orderNotes = '') => {
-    if (!tableId) {
+    if (!resolvedTableId) {
       setCheckoutError('Tautan meja tidak valid.')
       return
     }
@@ -95,14 +157,34 @@ function App() {
       setCheckoutError('Pilih metode pembayaran terlebih dahulu.')
       return
     }
+
+    // Cek ulang status meja tepat sebelum mengirim pesanan: kasir mungkin
+    // baru menutup meja setelah halaman ini dibuka.
+    setSubmitting(true)
+    setCheckoutError(null)
+    const fresh = await fetchFreshTable()
+    if (fresh) {
+      setTable(fresh)
+      if (fresh.checkout_token) setCheckoutToken(fresh.checkout_token)
+    }
+    const closedNow = fresh
+      ? fresh.effective_status === 'maintenance' || fresh.is_available === false
+      : orderingClosed
+    if (closedNow) {
+      setSubmitting(false)
+      setCheckoutError('Meja ini sedang tidak menerima pesanan. Silakan hubungi kasir.')
+      return
+    }
+
     const isAppending = Boolean(trackingToken)
     const resolvedName = isAppending && orderMeta ? orderMeta.customer_name : customerName
     const resolvedMethod = isAppending && orderMeta ? orderMeta.payment_method : paymentMethod
-    setSubmitting(true)
-    setCheckoutError(null)
     try {
       const payload = {
-        restaurant_table_id: tableId,
+        // Utamakan token; backend memvalidasi token lebih dulu dan
+        // mengabaikan ID mentah bila token ada.
+        checkout_token: fresh?.checkout_token || checkoutToken || undefined,
+        restaurant_table_id: (fresh?.checkout_token || checkoutToken) ? undefined : resolvedTableId,
         customer_name: resolvedName,
         payment_method: resolvedMethod,
         tracking_token: isAppending ? trackingToken : undefined,
@@ -184,7 +266,7 @@ function App() {
         <ErrorState
           title="Tidak dapat membuka menu"
           message={tableError}
-          onRetry={tableId ? retryTable : undefined}
+          onRetry={hasTableTarget ? retryTable : undefined}
         />
       )
     }
@@ -212,14 +294,24 @@ function App() {
         <MenuView
           table={table}
           cartItems={cart.items}
-          onSelectProduct={(product) => setDetailProductId(product.id)}
+          orderingDisabled={orderingClosed}
+          onRefreshTable={refreshTable}
+          onSelectProduct={(product) => {
+            if (orderingClosed) {
+              toastError('Meja ini sedang tidak menerima pesanan.')
+              return
+            }
+            setDetailProductId(product.id)
+          }}
           onProductsLoaded={setMenuProducts}
         />
-        <CartBar
-          count={cart.count}
-          total={cart.total}
-          onClick={() => setCartOpen(true)}
-        />
+        {!orderingClosed && (
+          <CartBar
+            count={cart.count}
+            total={cart.total}
+            onClick={() => setCartOpen(true)}
+          />
+        )}
       </>
     )
   }

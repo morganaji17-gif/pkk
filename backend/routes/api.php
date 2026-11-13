@@ -36,6 +36,14 @@ Route::get('/products/{product}', [ProductController::class, 'show'])->middlewar
 
 Route::get('/restaurant-tables/{restaurantTable}', [RestaurantTableController::class, 'show'])->middleware('throttle:public');
 
+// Health check untuk load balancer / uptime monitor.
+Route::get('/health', function () {
+    return response()->json(['status' => 'ok', 'time' => now()->toIso8601String()]);
+})->middleware('throttle:public');
+
+// Resolve meja via token QR (URL baru `/menu?t=...`). Tidak memakai ID berurutan.
+Route::get('/tables/resolve/{token}', [RestaurantTableController::class, 'resolveByToken'])->middleware('throttle:public');
+
 Route::get('/restaurant-tables/{restaurantTable}/qr', [RestaurantTableController::class, 'qrCode'])->middleware('throttle:public');
 
 Route::post('/checkout', [OrderController::class, 'checkout'])->middleware('throttle:checkout');
@@ -79,6 +87,8 @@ Route::middleware(['auth:sanctum', 'role:admin'])->group(function () {
     Route::apiResource('restaurant-tables', RestaurantTableController::class)
         ->except(['index', 'show']);
 
+    Route::post('/restaurant-tables/{restaurantTable}/rotate-token', [RestaurantTableController::class, 'rotateToken']);
+
     Route::apiResource('users', UserController::class);
 
     Route::get('/settings', [SettingsController::class, 'index']);
@@ -95,7 +105,7 @@ Route::middleware(['auth:sanctum', 'role:admin'])->group(function () {
 
 // ADMIN + CASHIER + KITCHEN (operasional)
 
-Route::middleware(['auth:sanctum', 'role:admin,cashier,kitchen'])->group(function () {
+Route::middleware(['auth:sanctum', 'role:admin,cashier,kitchen', 'throttle:internal'])->group(function () {
 
     Route::get('/orders', [OrderController::class, 'index']);
     Route::get('/orders/{order}', [OrderController::class, 'show']);
@@ -113,12 +123,15 @@ Route::middleware(['auth:sanctum', 'role:admin,cashier,kitchen'])->group(functio
 
 // ADMIN + CASHIER (laporan & meja)
 
-Route::middleware(['auth:sanctum', 'role:admin,cashier'])->group(function () {
+Route::middleware(['auth:sanctum', 'role:admin,cashier', 'throttle:internal'])->group(function () {
 
     Route::get('/reports/sales', [ReportController::class, 'sales']);
     Route::get('/reports/sales/export', [ReportController::class, 'exportSales']);
 
     Route::patch('/restaurant-tables/{restaurantTable}/status', [RestaurantTableController::class, 'updateStatus']);
+
+    // Kosongkan meja: selesaikan semua pesanan aktif (dipakai kasir).
+    Route::post('/restaurant-tables/{restaurantTable}/clear', [RestaurantTableController::class, 'clear']);
 
 });
 

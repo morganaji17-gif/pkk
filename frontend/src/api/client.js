@@ -1,6 +1,11 @@
 import { getStoredToken } from '../auth/storage'
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api'
+// Format: https://api.domain.com/api — REQUIRED, no fallback to prevent production hitting localhost.
+const BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '')
+
+if (!BASE_URL) {
+  throw new Error('VITE_API_BASE_URL wajib diisi. Salin frontend/.env.example jadi .env.')
+}
 
 export class ApiError extends Error {
   constructor(message, { status = null, fieldErrors = null } = {}) {
@@ -174,6 +179,21 @@ async function request(path, options = {}) {
 
 export function getRestaurantTable(id) {
   return request(`/restaurant-tables/${id}`)
+}
+
+/**
+ * Resolve meja via token QR publik (`/menu?t=...`).
+ * Mengembalikan data meja + checkout_token jangka pendek.
+ */
+export function getTableByToken(token) {
+  return request(`/tables/resolve/${encodeURIComponent(token)}`)
+}
+
+export function rotateRestaurantTableToken(id) {
+  return request(`/restaurant-tables/${id}/rotate-token`, { method: 'POST', auth: true }).then((res) => {
+    clearCacheFor('/restaurant-tables')
+    return res
+  })
 }
 
 export function getRestaurantTableQrUrl(id) {
@@ -669,6 +689,22 @@ export function updateRestaurantTableStatus(id, status) {
   }).then((res) => {
     clearCacheFor('/restaurant-tables')
     clearCacheFor('/tables')
+    invalidateDashboardCaches()
+    return res
+  })
+}
+
+/**
+ * Kosongkan meja: backend menyelesaikan semua pesanan aktif di meja tsb.
+ */
+export function clearRestaurantTable(id) {
+  return request(`/restaurant-tables/${id}/clear`, {
+    method: 'POST',
+    auth: true,
+  }).then((res) => {
+    clearCacheFor('/restaurant-tables')
+    clearCacheFor('/tables')
+    invalidateOrderCaches()
     invalidateDashboardCaches()
     return res
   })

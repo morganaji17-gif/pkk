@@ -65,7 +65,13 @@ class AuthController extends Controller
             return response()->json(['message' => 'User not found'], 404);
         }
 
-        $user->tokens()->delete();
+        // Hapus hanya token sesi ini. Demo publik memakai akun bersama;
+        // menghapus semua token akan mengeluarkan pengunjung lain yang
+        // sedang mencoba akun demo yang sama.
+        $token = $user->currentAccessToken();
+        if ($token) {
+            $token->delete();
+        }
 
         return response()->json(['message' => 'Logout successful']);
     }

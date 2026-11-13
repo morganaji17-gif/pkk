@@ -15,7 +15,7 @@ const PERIODS = [
 
 function methodLabel(method) {
   if (method === 'qris') return 'QRIS'
-  if (method === 'cash') return 'Cash'
+  if (method === 'cash') return 'Tunai'
   return '-'
 }
 

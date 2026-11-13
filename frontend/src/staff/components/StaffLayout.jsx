@@ -6,6 +6,7 @@ import { useDashboardStats as useDashboardStatsHook } from '../hooks/useDashboar
 import { DashboardStatsProvider } from '../context/DashboardStatsContext'
 import { RealtimeProvider } from '../context/RealtimeContext'
 import { createPrefetchHandlers } from '../../prefetch/prefetch'
+import BrandMark from '../../components/BrandMark'
 
 function Icon({ children }) {
   return (
@@ -139,13 +140,7 @@ function Brand() {
   return (
     <Link to="/" className="staff-brand">
       <span className="staff-brand__mark" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18">
-          <path d="M4 2h16" />
-          <path d="M6 2v10a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V2" />
-          <path d="M9 16v4" />
-          <path d="M15 16v4" />
-          <path d="M8 22h8" />
-        </svg>
+        <BrandMark size={24} />
       </span>
       Pesanin
     </Link>

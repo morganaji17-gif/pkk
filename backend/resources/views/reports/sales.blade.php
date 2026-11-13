@@ -48,10 +48,11 @@
   .sign-wrap { margin-top: 26px; page-break-inside: avoid; width: 100%; border-collapse: collapse; }
   .sign-wrap td { vertical-align: top; }
   .sign-note { font-size: 9px; color: #7a5c5c; font-style: italic; }
-  table.sign-box { width: 46%; border-collapse: collapse; }
+  .sign-cell { width: 40%; }
+  table.sign-box { width: 100%; border-collapse: collapse; }
   table.sign-box td { font-size: 10px; color: #2a1a1a; text-align: center; padding: 2px 6px; }
-  .sign-date { font-size: 10px; color: #2a1a1a; }
-  .sign-space { height: 52px; border-bottom: 1px dotted #7f1d1d; }
+  .sign-date { font-size: 10px; color: #2a1a1a; white-space: nowrap; }
+  .sign-space { height: 52px; width: 175px; margin: 0 auto; border-bottom: 1px dotted #7f1d1d; }
   .sign-img { height: 48px; width: 67px; }
   .sign-name { font-weight: bold; padding-top: 4px !important; }
   .sign-role { color: #7f1d1d; }
@@ -220,9 +221,9 @@
             </td>
           </tr>
           <tr><td>Dibuat oleh,</td></tr>
-          <tr><td class="sign-space">@if (!empty($signaturePath))<img src="{{ $signaturePath }}" alt="" class="sign-img">@else&nbsp;@endif</td></tr>
-          <tr><td class="sign-name">{{ $createdBy }}</td></tr>
-          <tr><td class="sign-role">{{ $createdByRole ?? 'Admin Pesanin' }}</td></tr>
+          <tr><td><div class="sign-space">@if (!empty($signaturePath))<img src="{{ $signaturePath }}" alt="" class="sign-img">@else&nbsp;@endif</div></td></tr>
+          <tr><td class="sign-name">{{ $createdByName ?? $createdBy }}</td></tr>
+          <tr><td class="sign-role">{{ $createdByRole ?? 'Admin' }}</td></tr>
         </table>
       </td>
     </tr>

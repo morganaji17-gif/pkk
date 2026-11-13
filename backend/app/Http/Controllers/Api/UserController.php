@@ -12,6 +12,19 @@ use Illuminate\Http\Request;
 
 class UserController extends Controller
 {
+    /**
+     * Akun demo publik yang dipakai bersama oleh pengunjung landing page.
+     * Kredensial dan perannya tidak boleh diubah, dan akunnya tidak boleh
+     * dihapus, agar pengunjung berikutnya tidak kehilangan akses demo.
+     *
+     * Samakan daftar ini dengan backend/database/seeders/UserSeeder.php.
+     */
+    private const DEMO_ACCOUNT_EMAILS = [
+        'admin@example.com',
+        'cashier@example.com',
+        'kitchen@example.com',
+    ];
+
     public function index(\Illuminate\Http\Request $request)
     {
         $page = (int) $request->input('page', 1);
@@ -57,6 +70,19 @@ class UserController extends Controller
     {
         $data = $request->validated();
 
+        if (in_array($user->email, self::DEMO_ACCOUNT_EMAILS, true)) {
+            $protectedFields = array_intersect(
+                array_keys($data),
+                ['email', 'password', 'role']
+            );
+
+            if ($protectedFields !== []) {
+                return response()->json([
+                    'message' => 'Akun demo tidak dapat diubah email, kata sandi, atau perannya.',
+                ], 422);
+            }
+        }
+
         if ($user->role === 'admin'
             && isset($data['role'])
             && $data['role'] !== 'admin'
@@ -85,6 +111,12 @@ class UserController extends Controller
 
     public function destroy(Request $request, User $user)
     {
+        if (in_array($user->email, self::DEMO_ACCOUNT_EMAILS, true)) {
+            return response()->json([
+                'message' => 'Akun demo tidak dapat dihapus.',
+            ], 422);
+        }
+
         if ($user->id === $request->user()->id) {
             return response()->json([
                 'message' => 'Anda tidak dapat menghapus akun sendiri.',

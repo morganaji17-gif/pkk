@@ -1,4 +1,5 @@
 import { formatRupiah, formatDateTime, PAYMENT_METHOD_LABELS, getOrderItems } from '../../utils/format'
+import BrandMark from '../../components/BrandMark'
 
 export default function Receipt({ order, unpaidLabel = 'Menunggu Pembayaran' }) {
     const items = getOrderItems(order)
@@ -8,6 +9,7 @@ export default function Receipt({ order, unpaidLabel = 'Menunggu Pembayaran' }) 
     return (
         <div className="receipt">
             <div className="receipt-header">
+                <BrandMark size={30} className="receipt-brand" title="Pesanin" />
                 <h2>Pesanin</h2>
                 <h2>Struk Pesanan</h2>
             </div>

@@ -136,7 +136,7 @@ export default function CheckoutView({
             <legend className="field__label">Metode Pembayaran</legend>
             <div className="checkout-payment__methods" role="radiogroup" aria-label="Metode pembayaran">
               {[
-                { value: 'cash', label: 'Cash' },
+                { value: 'cash', label: 'Tunai' },
                 { value: 'qris', label: 'QRIS' },
               ].map((method) => (
                 <button

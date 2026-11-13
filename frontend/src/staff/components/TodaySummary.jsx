@@ -63,7 +63,7 @@ export default function TodaySummary() {
   const cards = [
     { label: 'Transaksi Hari Ini', value: summary.total_transactions },
     { label: 'Pendapatan (Lunas)', value: formatRupiah(summary.total_revenue) },
-    { label: 'Cash', value: formatRupiah(summary.cash) },
+    { label: 'Tunai', value: formatRupiah(summary.cash) },
     { label: 'QRIS', value: formatRupiah(summary.qris) },
     { label: 'Transaksi Lunas', value: summary.paid },
     { label: 'Belum Dibayar', value: summary.unpaid },

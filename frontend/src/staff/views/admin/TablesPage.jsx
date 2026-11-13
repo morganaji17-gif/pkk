@@ -7,6 +7,7 @@ import {
   updateRestaurantTable,
   updateRestaurantTableStatus,
   deleteRestaurantTable,
+  rotateRestaurantTableToken,
   peekTablesCache,
   clearCacheFor,
 } from '../../../api/client'
@@ -234,6 +235,19 @@ export default function TablesPage() {
     }
   }
 
+  const handleRotateToken = async (table) => {
+    try {
+      await rotateRestaurantTableToken(table.id)
+      clearCacheFor('/restaurant-tables')
+      clearCacheFor('/tables')
+      retry()
+      toastSuccess(`Token QR Meja ${table.table_number} diperbarui. Cetak ulang QR-nya.`)
+      setQrTable(null)
+    } catch (err) {
+      toastError(err.message)
+    }
+  }
+
   const requestDelete = async (table) => {
     const confirmed = await confirmDelete({
       title: 'Hapus Meja',
@@ -392,18 +406,32 @@ export default function TablesPage() {
             />
           )}
           <p className="staff-qr-modal__url">
-            {qrTable ? `${window.location.origin}/menu?table=${qrTable.id}` : ''}
+            {qrTable
+              ? `${window.location.origin}/menu?t=${qrTable.public_token || ''}`
+              : ''}
           </p>
           <p className="staff-qr-modal__hint">
-            Pindai QR ini untuk membuka menu di meja tersebut.
+            Pindai QR ini untuk membuka menu di meja tersebut. Tautan memakai
+            token acak — tidak bisa ditebak dari nomor meja.
           </p>
-          <button
-            type="button"
-            className="btn btn--primary"
-            onClick={() => setQrTable(null)}
-          >
-            Tutup
-          </button>
+          <div className="staff-row-actions" style={{ justifyContent: 'center', gap: 8 }}>
+            <button
+              type="button"
+              className="btn btn--add staff-row-actions__danger"
+              onClick={() => {
+                if (qrTable) handleRotateToken(qrTable)
+              }}
+            >
+              Perbarui Token
+            </button>
+            <button
+              type="button"
+              className="btn btn--primary"
+              onClick={() => setQrTable(null)}
+            >
+              Tutup
+            </button>
+          </div>
         </div>
       </Modal>
     </div>

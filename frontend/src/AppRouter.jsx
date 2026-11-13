@@ -1,8 +1,8 @@
 import { lazy, Suspense } from 'react'
-import { Routes, Route, Navigate } from 'react-router-dom'
-import { useAuth } from './auth/useAuth'
+import { Routes, Route } from 'react-router-dom'
 import ErrorBoundary from './components/ErrorBoundary'
 import App from './App'
+import LandingPage from './views/LandingPage'
 import ProtectedRoute from './staff/components/ProtectedRoute'
 import StaffLayout from './staff/components/StaffLayout'
 import LoginView from './staff/views/LoginView'
@@ -23,27 +23,12 @@ const UsersPage = lazy(() => import('./staff/views/admin/UsersPage'))
 const AuditLogsPage = lazy(() => import('./staff/views/admin/AuditLogsPage'))
 const StockHistoryPage = lazy(() => import('./staff/views/admin/StockHistoryPage'))
 
-function destinationForRole(role) {
-  if (role === 'admin') return '/admin'
-  if (role === 'kitchen') return '/kitchen'
-  return '/cashier'
-}
-
-function HomeRedirect() {
-  const { user, initializing } = useAuth()
-  if (initializing) return null
-  if (user) {
-    return <Navigate to={destinationForRole(user.role)} replace />
-  }
-  return <Navigate to="/menu" replace />
-}
-
 export default function AppRouter() {
   return (
     <ErrorBoundary>
       <Suspense fallback={<LoadingState label="Memuat halaman…" />}>
         <Routes>
-          <Route path="/" element={<HomeRedirect />} />
+          <Route path="/" element={<LandingPage />} />
 
       <Route path="/menu" element={<App />} />
 

@@ -79,6 +79,7 @@ class ReportController extends Controller
             'date' => $date,
             'generatedAt' => Carbon::now($this->reportService->getBusinessTimezone()),
             'createdBy' => $this->reportService->createdByLabel(),
+            'createdByName' => $this->reportService->createdByName(),
             'createdByRole' => $this->reportService->createdByRoleLabel(),
             'signaturePath' => $this->reportService->signaturePath(),
             'orders' => $result['orders'],

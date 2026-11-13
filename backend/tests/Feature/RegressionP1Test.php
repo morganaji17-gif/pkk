@@ -118,11 +118,13 @@ class RegressionP1Test extends \Tests\TestCase
         $service = app(\App\Services\SalesReportService::class);
         $this->assertNotNull($service->signaturePath());
         $this->assertStringEndsWith('ttd.png', $service->signaturePath());
-        $this->assertEquals('Admin Pesanin', $service->createdByRoleLabel());
+        $this->assertEquals('Admin', $service->createdByRoleLabel());
+        $this->assertEquals($admin->name, $service->createdByName());
 
         $this->actingAs($cashier);
         $this->assertNull($service->signaturePath());
-        $this->assertEquals('Kasir Pesanin', $service->createdByRoleLabel());
+        $this->assertEquals('Kasir', $service->createdByRoleLabel());
+        $this->assertEquals($cashier->name, $service->createdByName());
 
         // PDF kasir tetap bisa diunduh, tapi tanpa objek gambar
         $token = $cashier->createToken('t')->plainTextToken;

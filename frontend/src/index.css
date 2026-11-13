@@ -514,6 +514,54 @@ img {
   }
 }
 
+/* Meja maintenance / tidak tersedia: kunci aksi pemesanan */
+.menu-notice {
+  margin: 12px 16px 0;
+  padding: 14px 16px;
+  border-radius: var(--radius-md, 12px);
+  border: 1px solid var(--color-warning, #d97706);
+  background: var(--color-warning-bg, #fff7ed);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.menu-notice__title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-warning, #b45309);
+}
+
+.menu-notice__text {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--color-muted-foreground, #57534e);
+}
+
+.menu-notice__action {
+  align-self: flex-start;
+  margin-top: 4px;
+}
+
+.product-grid--disabled {
+  opacity: 0.55;
+  pointer-events: none;
+  user-select: none;
+}
+
+@media (min-width: 768px) {
+  .menu-notice {
+    margin: 16px 24px 0;
+  }
+}
+
+@media (min-width: 1024px) {
+  .menu-notice {
+    margin: 16px 32px 0;
+  }
+}
+
 .product-card {
   display: flex;
   flex-direction: column;
@@ -1638,6 +1686,12 @@ img {
 
 .receipt-header {
   text-align: center;
+}
+
+.receipt-brand {
+  display: block;
+  margin: 0 auto 1.5mm;
+  color: #000;
 }
 
 .receipt-header h2 {

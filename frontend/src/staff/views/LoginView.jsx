@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { Navigate, useLocation, useNavigate, Link } from 'react-router-dom'
+import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../auth/useAuth'
 import { ApiError } from '../../api/client'
+import BrandMark from '../../components/BrandMark'
 
 function destinationForRole(role) {
   if (role === 'admin') return '/admin'
@@ -50,13 +51,7 @@ export default function LoginView() {
       <div className="staff-login__card">
         <div className="staff-login__brand">
           <span className="staff-login__mark" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="26" height="26">
-              <path d="M4 2h16" />
-              <path d="M6 2v10a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V2" />
-              <path d="M9 16v4" />
-              <path d="M15 16v4" />
-              <path d="M8 22h8" />
-            </svg>
+            <BrandMark size={32} />
           </span>
           <h1 className="staff-login__title">Pesanin</h1>
           <p className="staff-login__subtitle">Masuk untuk staf restoran</p>
@@ -105,10 +100,6 @@ export default function LoginView() {
             {submitting ? 'Memproses…' : 'Masuk'}
           </button>
         </form>
-
-        <Link to="/menu" className="staff-login__menu-link">
-          Lihat menu customer
-        </Link>
       </div>
     </div>
   )

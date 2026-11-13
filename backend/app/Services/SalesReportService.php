@@ -77,13 +77,13 @@ class SalesReportService
         $agg = Order::where('created_at', '>=', $fromUTC)
             ->where('created_at', '<', $toUTC)
             ->selectRaw("COUNT(*) as total_transactions")
-            ->selectRaw("COALESCE(SUM(CASE WHEN payment_status='paid' THEN total_price ELSE 0 END),0) as total_revenue")
-            ->selectRaw("COALESCE(SUM(CASE WHEN payment_status='paid' AND payment_method='cash' THEN total_price ELSE 0 END),0) as cash")
-            ->selectRaw("COALESCE(SUM(CASE WHEN payment_status='paid' AND payment_method='qris' THEN total_price ELSE 0 END),0) as qris")
-            ->selectRaw("COALESCE(SUM(CASE WHEN payment_status='paid' THEN 1 ELSE 0 END),0) as paid")
+            ->selectRaw("COALESCE(SUM(CASE WHEN payment_status='paid' AND status!='cancelled' THEN total_price ELSE 0 END),0) as total_revenue")
+            ->selectRaw("COALESCE(SUM(CASE WHEN payment_status='paid' AND status!='cancelled' AND payment_method='cash' THEN total_price ELSE 0 END),0) as cash")
+            ->selectRaw("COALESCE(SUM(CASE WHEN payment_status='paid' AND status!='cancelled' AND payment_method='qris' THEN total_price ELSE 0 END),0) as qris")
+            ->selectRaw("COALESCE(SUM(CASE WHEN payment_status='paid' AND status!='cancelled' THEN 1 ELSE 0 END),0) as paid")
             ->selectRaw("COALESCE(SUM(CASE WHEN payment_status!='paid' THEN 1 ELSE 0 END),0) as unpaid")
-            ->selectRaw("COALESCE(SUM(CASE WHEN payment_status='paid' THEN service_charge ELSE 0 END),0) as service_charge")
-            ->selectRaw("COALESCE(SUM(CASE WHEN payment_status='paid' THEN tax ELSE 0 END),0) as tax")
+            ->selectRaw("COALESCE(SUM(CASE WHEN payment_status='paid' AND status!='cancelled' THEN service_charge ELSE 0 END),0) as service_charge")
+            ->selectRaw("COALESCE(SUM(CASE WHEN payment_status='paid' AND status!='cancelled' THEN tax ELSE 0 END),0) as tax")
             ->first();
 
         $quantitySold = OrderItem::query()
@@ -187,6 +187,16 @@ class SalesReportService
     }
 
     /**
+     * Nama penanda tangan saja (tanpa jabatan), untuk blok tanda tangan PDF.
+     */
+    public function createdByName(): string
+    {
+        $user = Auth::user();
+
+        return $user?->name ?? '-';
+    }
+
+    /**
      * Path gambar tanda tangan untuk blok pengesahan laporan.
      * Hanya admin yang memakai tanda tangan digital; kasir dibiarkan kosong
      * agar bisa ditandatangani basah.
@@ -204,17 +214,17 @@ class SalesReportService
     }
 
     /**
-     * Label jabatan di bawah nama penanda tangan.
+     * Label jabatan di bawah nama penanda tangan (tanpa nama, cukup jabatan).
      */
     public function createdByRoleLabel(): string
     {
         $user = Auth::user();
-        if (!$user) return 'Pesanin';
+        if (!$user) return 'Admin';
 
         return match ($user->role) {
-            'admin' => 'Admin Pesanin',
-            'kitchen' => 'Dapur Pesanin',
-            default => 'Kasir Pesanin',
+            'admin' => 'Admin',
+            'kitchen' => 'Dapur',
+            default => 'Kasir',
         };
     }
 

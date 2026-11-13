@@ -12,6 +12,8 @@ import ProductCard from '../components/ProductCard'
 export default function MenuView({
   table,
   cartItems,
+  orderingDisabled = false,
+  onRefreshTable,
   onSelectProduct,
   onProductsLoaded,
 }) {
@@ -94,6 +96,24 @@ export default function MenuView({
 
       {!loading && !error && (
         <>
+          {orderingDisabled && (
+            <div className="menu-notice" role="status">
+              <strong className="menu-notice__title">Meja ini sedang tidak menerima pesanan</strong>
+              <p className="menu-notice__text">
+                Meja sedang dalam perawatan. Silakan hubungi kasir atau pindah ke meja lain.
+              </p>
+              {onRefreshTable && (
+                <button
+                  type="button"
+                  className="btn btn--secondary btn--sm menu-notice__action"
+                  onClick={onRefreshTable}
+                >
+                  Cek lagi
+                </button>
+              )}
+            </div>
+          )}
+
           {categories.length > 0 && (
             <CategoryFilter
               categories={categories}
@@ -113,7 +133,10 @@ export default function MenuView({
               }
             />
           ) : (
-            <ul className="product-grid">
+            <ul
+              className={`product-grid${orderingDisabled ? ' product-grid--disabled' : ''}`}
+              aria-disabled={orderingDisabled || undefined}
+            >
               {visibleProducts.map((product, index) => (
                 <motion.li
                   key={product.id}

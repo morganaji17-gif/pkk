@@ -14,6 +14,12 @@ use Illuminate\Support\Facades\DB;
 class CheckoutService
 {
     /**
+     * Batas pesanan aktif per meja. Mencegah spam pesanan palsu
+     * dari tautan meja yang tersebar.
+     */
+    private const MAX_ACTIVE_ORDERS_PER_TABLE = 5;
+
+    /**
      * Proses checkout / append order dalam transaksi.
      * @return array{order: Order, is_new: bool}
      */
@@ -44,6 +50,18 @@ class CheckoutService
                 }
                 if (!in_array($existingOrder->status, Order::APPENDABLE_STATUSES, true)) {
                     throw new \InvalidArgumentException('Pesanan tidak dapat ditambah lagi pada status saat ini.');
+                }
+            } else {
+                // Hanya pesanan BARU yang dihitung terhadap cap. Append ke
+                // pesanan yang sudah ada tidak menambah beban meja.
+                $activeCount = Order::where('restaurant_table_id', $table->id)
+                    ->whereIn('status', Order::OCCUPYING_STATUSES)
+                    ->count();
+
+                if ($activeCount >= self::MAX_ACTIVE_ORDERS_PER_TABLE) {
+                    throw new \InvalidArgumentException(
+                        'Meja ini sudah memiliki terlalu banyak pesanan aktif. Selesaikan pesanan sebelumnya atau hubungi kasir.'
+                    );
                 }
             }
 
